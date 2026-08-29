@@ -104,6 +104,15 @@ pub fn analyze_buffer(data: &[u8], options: AnalyzeOptions) -> Analysis {
         analysis.push_section(s);
     }
 
+    #[cfg(feature = "c2pa")]
+    {
+        let (c2pa_secs, c2pa_warns) = crate::c2pa_support::extract(data, &analysis.mime);
+        analysis.warnings.extend(c2pa_warns);
+        for s in c2pa_secs {
+            analysis.push_section(s);
+        }
+    }
+
     let normalized = normalize::build_normalized_section(&analysis.sections);
     analysis.push_section(normalized);
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- **C2PA / JUMBF:** detect and parse embedded manifests (JPEG/PNG/ISO-BMFF and other formats supported by the CAI `c2pa` crate) via feature `c2pa` (default on; `rust_native_crypto`, no OpenSSL, no remote manifest fetch).
+- Surfaces active manifest, `c2pa.actions` / `c2pa.actions.v2`, hard-binding (`assertion.dataHash.*`) outcome, and COSE issuer / common name when available.
+- Honest warnings when validation is Invalid, credentials are untrusted, or remote URLs are present but not fetched.
+- Fixture: `fixtures/c2pa-sample.png` (ephemeral-signed synthetic PNG; see `fixtures/README.md`).
+
 ## 0.4.0
 
 - **Sniffing:** parser dispatch is magic/MIME-first; filename extension is only used when MIME is `application/octet-stream` / unknown.

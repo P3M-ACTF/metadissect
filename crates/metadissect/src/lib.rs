@@ -5,6 +5,8 @@
 //! MetaInstructor (`meta-explain`); this crate keeps technical `warnings` only.
 
 pub mod analyze;
+#[cfg(feature = "c2pa")]
+pub mod c2pa_support;
 pub mod embed;
 pub mod entropy;
 pub mod error;

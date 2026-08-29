@@ -1,12 +1,12 @@
 # MetaDissect
 
-Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.4.0). Binario: `metadissect`.
+Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.5.0). Binario: `metadissect`.
 
 ## Qué es / qué no es
 
-**Es:** librería + CLI. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML, HTML/JSON, etc.). Comandos: `analyze`, `fetch`, `html`, `json`. Formatos: `table`, `json`, `markdown`, `csv`.
+**Es:** librería + CLI. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML, HTML/JSON, C2PA/JUMBF, etc.). Comandos: `analyze`, `fetch`, `html`, `json`. Formatos: `table`, `json`, `markdown`, `csv`.
 
-**No es:** interfaz web, servidor (`serve`), crawler ni FOCA. Sin UI.
+**No es:** interfaz web, servidor (`serve`), crawler ni FOCA. Sin UI. No descarga manifiestos C2PA remotos ni incluye la lista de confianza C2PA oficial (firma válida ≠ `Trusted`).
 
 ## Familia MetaDissect
 
@@ -64,13 +64,13 @@ El análisis es local. Una URL solo se descarga si usas `fetch`. No se envían a
 
 ## English
 
-**MetaDissect** is a Rust **library + CLI** (v0.4.0) for exhaustive local metadata analysis. Binary: `metadissect`.
+**MetaDissect** is a Rust **library + CLI** (v0.5.0) for exhaustive local metadata analysis. Binary: `metadissect`.
 
 ### What it is / is not
 
-**Is:** library and CLI. Commands: `analyze`, `fetch`, `html`, `json`. Output: `table`, `json`, `markdown`, `csv`.
+**Is:** library and CLI. Commands: `analyze`, `fetch`, `html`, `json`. Output: `table`, `json`, `markdown`, `csv`. Includes C2PA/JUMBF when present (feature `c2pa`, default).
 
-**Is not:** a web UI, `serve` endpoint, crawler, or FOCA-like tool.
+**Is not:** a web UI, `serve` endpoint, crawler, or FOCA-like tool. Does not fetch remote C2PA manifests or ship the official C2PA trust list.
 
 ### Family
 

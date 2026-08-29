@@ -9,13 +9,16 @@ rust-version.workspace = true
 description = "Exhaustive metadata parsers, hashes and MIME detection."
 
 [features]
-default = []
+default = ["c2pa"]
+# Content Authenticity Initiative SDK (rust_native_crypto; no OpenSSL / no remote fetch).
+c2pa = ["dep:c2pa"]
 heif = []
 
 [dependencies]
 anyhow.workspace = true
 base64 = "0.22"
 blake3 = "1"
+c2pa = { version = "0.90", default-features = false, features = ["rust_native_crypto"], optional = true }
 chrono.workspace = true
 encoding_rs = "0.8"
 flate2 = "1"
