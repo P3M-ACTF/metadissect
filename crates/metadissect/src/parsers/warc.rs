@@ -39,7 +39,8 @@ pub fn parse_warc(data: &[u8]) -> (Vec<Section>, Vec<String>) {
 
     let mut offset = 0usize;
     let mut record_idx = 0usize;
-    let mut type_counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    let mut type_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
 
     while offset < data.len() {
         // Skip leading blank lines / CR LF between records
@@ -117,9 +118,7 @@ pub fn parse_warc(data: &[u8]) -> (Vec<Section>, Vec<String>) {
                 if record_idx == 0 {
                     warnings.push(format!("WARC: {msg}"));
                 } else {
-                    warnings.push(format!(
-                        "WARC: stopped after {record_idx} record(s): {msg}"
-                    ));
+                    warnings.push(format!("WARC: stopped after {record_idx} record(s): {msg}"));
                 }
                 break;
             }
@@ -142,9 +141,8 @@ struct WarcRecord {
 }
 
 fn parse_one_record(data: &[u8], start: usize) -> Result<(WarcRecord, usize), String> {
-    let version_line_end = find_line_end(data, start).ok_or_else(|| {
-        "incomplete version line".to_string()
-    })?;
+    let version_line_end =
+        find_line_end(data, start).ok_or_else(|| "incomplete version line".to_string())?;
     let version = std::str::from_utf8(&data[start..version_line_end])
         .unwrap_or("")
         .trim();
@@ -219,10 +217,7 @@ fn parse_http_block(
     (status, Some(headers))
 }
 
-fn parse_header_block(
-    data: &[u8],
-    start: usize,
-) -> Result<(Vec<(String, String)>, usize), String> {
+fn parse_header_block(data: &[u8], start: usize) -> Result<(Vec<(String, String)>, usize), String> {
     let mut headers = Vec::new();
     let mut pos = start;
     let mut current: Option<(String, String)> = None;
@@ -231,9 +226,8 @@ fn parse_header_block(
         if pos >= data.len() {
             return Err("truncated while reading WARC headers".into());
         }
-        let line_end = find_line_end(data, pos).ok_or_else(|| {
-            "truncated WARC header line".to_string()
-        })?;
+        let line_end =
+            find_line_end(data, pos).ok_or_else(|| "truncated WARC header line".to_string())?;
         let raw = &data[pos..line_end];
         let next = skip_crlf(data, line_end);
 
@@ -269,17 +263,14 @@ fn header_get(headers: &[(String, String)], key: &str) -> Option<String> {
 }
 
 fn find_line_end(data: &[u8], start: usize) -> Option<usize> {
-    data[start..]
-        .iter()
-        .position(|&b| b == b'\n')
-        .map(|i| {
-            let end = start + i;
-            if end > start && data[end - 1] == b'\r' {
-                end - 1
-            } else {
-                end
-            }
-        })
+    data[start..].iter().position(|&b| b == b'\n').map(|i| {
+        let end = start + i;
+        if end > start && data[end - 1] == b'\r' {
+            end - 1
+        } else {
+            end
+        }
+    })
 }
 
 fn skip_crlf(data: &[u8], at: usize) -> usize {
@@ -360,13 +351,11 @@ mod tests {
             .iter()
             .find(|s| s.id == "warc-record-1")
             .expect("response record");
-        assert!(response.fields.iter().any(|f| {
-            f.key == "WARC-Target-URI" && f.value.contains("example.com")
-        }));
         assert!(response
             .fields
             .iter()
-            .any(|f| f.key == "WARC-IP-Address"));
+            .any(|f| { f.key == "WARC-Target-URI" && f.value.contains("example.com") }));
+        assert!(response.fields.iter().any(|f| f.key == "WARC-IP-Address"));
         assert!(response
             .fields
             .iter()

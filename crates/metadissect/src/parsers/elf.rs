@@ -26,9 +26,9 @@ pub fn parse_elf(data: &[u8]) -> (Vec<Section>, Vec<String>) {
     }
     match notes_section(&elf, data) {
         Some(notes) => sections.push(notes),
-        None => warnings.push(
-            "ELF: no PT_NOTE / SHT_NOTE notes found (build-id may be absent)".into(),
-        ),
+        None => {
+            warnings.push("ELF: no PT_NOTE / SHT_NOTE notes found (build-id may be absent)".into())
+        }
     }
 
     (sections, warnings)
@@ -37,18 +37,10 @@ pub fn parse_elf(data: &[u8]) -> (Vec<Section>, Vec<String>) {
 fn header_section(elf: &Elf<'_>) -> Section {
     let mut s = Section::new("elf-header", "ELF header");
     let ns = "ELF";
-    s.add(
-        "Class",
-        if elf.is_64 { "ELF64" } else { "ELF32" },
-        Some(ns),
-    );
+    s.add("Class", if elf.is_64 { "ELF64" } else { "ELF32" }, Some(ns));
     s.add(
         "Endian",
-        if elf.little_endian {
-            "little"
-        } else {
-            "big"
-        },
+        if elf.little_endian { "little" } else { "big" },
         Some(ns),
     );
     s.add("Type", elf_type(elf.header.e_type), Some(ns));
@@ -178,11 +170,7 @@ fn notes_section(elf: &Elf<'_>, data: &[u8]) -> Option<Section> {
             _ => {
                 s.fields.push(
                     Field::new(
-                        format!(
-                            "Note:{}:{}",
-                            note.name.trim_end_matches('\0'),
-                            note.n_type
-                        ),
+                        format!("Note:{}:{}", note.name.trim_end_matches('\0'), note.n_type),
                         desc_hex,
                     )
                     .with_namespace(ns),

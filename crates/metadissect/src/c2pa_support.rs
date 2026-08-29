@@ -202,7 +202,11 @@ pub fn extract(data: &[u8], mime: &str) -> (Vec<Section>, Vec<String>) {
     sections.push(overview);
 
     if let Some(manifest) = reader.active_manifest() {
-        sections.push(manifest_section("c2pa-manifest", "C2PA active manifest", manifest));
+        sections.push(manifest_section(
+            "c2pa-manifest",
+            "C2PA active manifest",
+            manifest,
+        ));
         if let Some(actions_sec) = actions_section(manifest) {
             sections.push(actions_sec);
         }
@@ -309,7 +313,11 @@ fn manifest_section(id: &str, label: &str, manifest: &Manifest) -> Section {
                     .with_raw(value.clone()),
             );
         } else {
-            sec.add(format!("Assertion:{alabel}"), "(binary or undecoded)", Some("C2PA"));
+            sec.add(
+                format!("Assertion:{alabel}"),
+                "(binary or undecoded)",
+                Some("C2PA"),
+            );
         }
     }
 
@@ -391,7 +399,10 @@ mod tests {
             .iter()
             .find(|f| f.key == "HardBinding")
             .expect("HardBinding");
-        assert_eq!(binding.value, "pass", "untampered fixture should pass hard binding");
+        assert_eq!(
+            binding.value, "pass",
+            "untampered fixture should pass hard binding"
+        );
 
         let actions = sections
             .iter()
@@ -419,7 +430,9 @@ mod tests {
             manifest.fields.iter().map(|f| &f.key).collect::<Vec<_>>()
         );
         assert!(
-            warnings.iter().any(|w| w.contains("trust") || w.contains("untrusted") || w.contains("Valid")),
+            warnings
+                .iter()
+                .any(|w| w.contains("trust") || w.contains("untrusted") || w.contains("Valid")),
             "expected honest trust warning, got {warnings:?}"
         );
     }

@@ -172,12 +172,21 @@ mod tests {
         let jpeg = assemble_jpeg_with_apps(&[&app1_xmp], &app13);
         let a = analyze_buffer(&jpeg, AnalyzeOptions::from_filename("mwg.jpg"));
         assert!(
-            a.warnings.iter().any(|w| w.contains("MWG") && w.contains("XMP")),
+            a.warnings
+                .iter()
+                .any(|w| w.contains("MWG") && w.contains("XMP")),
             "warnings={:?}",
             a.warnings
         );
-        let mwg = a.sections.iter().find(|s| s.id == "mwg").expect("mwg section");
-        assert!(mwg.fields.iter().any(|f| f.key == "Precedence" && f.value.contains("xmp")));
+        let mwg = a
+            .sections
+            .iter()
+            .find(|s| s.id == "mwg")
+            .expect("mwg section");
+        assert!(mwg
+            .fields
+            .iter()
+            .any(|f| f.key == "Precedence" && f.value.contains("xmp")));
         let byline = a
             .sections
             .iter()
@@ -185,7 +194,11 @@ mod tests {
             .find(|f| f.key == "Byline")
             .expect("Byline");
         assert!(
-            byline.explanation.as_deref().unwrap_or("").contains("superseded")
+            byline
+                .explanation
+                .as_deref()
+                .unwrap_or("")
+                .contains("superseded")
                 || byline.value == "Iptc",
             "byline={byline:?}"
         );
@@ -203,7 +216,9 @@ mod tests {
         assert!(
             a.sections.iter().any(|s| {
                 s.id.starts_with("embed")
-                    || s.fields.iter().any(|f| f.key == "EmbedAnchor" || f.key == "EmbedMime")
+                    || s.fields
+                        .iter()
+                        .any(|f| f.key == "EmbedAnchor" || f.key == "EmbedMime")
             }),
             "expected embed sections, got {:?}",
             a.sections.iter().map(|s| &s.id).collect::<Vec<_>>()
@@ -216,7 +231,7 @@ mod tests {
             out.extend_from_slice(b"8BIM");
             out.extend_from_slice(&id.to_be_bytes());
             out.push(0); // empty Pascal name
-            // name padding already even (1 byte name_len + 0 name = odd → pad 1)
+                         // name padding already even (1 byte name_len + 0 name = odd → pad 1)
             out.push(0);
             out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
             out.extend_from_slice(payload);
@@ -257,11 +272,7 @@ mod tests {
             let opts = zip::write::SimpleFileOptions::default();
             zip.start_file("word/media/image1.jpg", opts).unwrap();
             zip.write_all(jpeg).unwrap();
-            zip.start_file(
-                "docProps/core.xml",
-                opts,
-            )
-            .unwrap();
+            zip.start_file("docProps/core.xml", opts).unwrap();
             zip.write_all(
                 br#"<?xml version="1.0"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>EmbedTest</dc:creator><dc:title>Nested</dc:title></cp:coreProperties>"#,
             )

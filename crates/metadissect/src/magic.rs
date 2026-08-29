@@ -241,10 +241,8 @@ fn looks_like_macho(data: &[u8]) -> bool {
     }
     let le = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
     let be = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
-    matches!(
-        le,
-        0xFEEDFACE | 0xFEEDFACF | 0xCEFAEDFE | 0xCFFAEDFE
-    ) || matches!(be, 0xCAFEBABE | 0xBEBAFECA)
+    matches!(le, 0xFEEDFACE | 0xFEEDFACF | 0xCEFAEDFE | 0xCFFAEDFE)
+        || matches!(be, 0xCAFEBABE | 0xBEBAFECA)
 }
 
 fn is_mostly_text(data: &[u8]) -> bool {

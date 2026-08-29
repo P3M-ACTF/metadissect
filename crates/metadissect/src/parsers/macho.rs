@@ -74,11 +74,7 @@ fn header_section(bin: &MachO<'_>) -> Section {
     s.add("Is64", bin.is_64.to_string(), Some(ns));
     s.add(
         "Endian",
-        if bin.little_endian {
-            "little"
-        } else {
-            "big"
-        },
+        if bin.little_endian { "little" } else { "big" },
         Some(ns),
     );
     let cpu = goblin::mach::cputype::get_arch_name_from_types(

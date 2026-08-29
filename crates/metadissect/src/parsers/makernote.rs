@@ -230,7 +230,10 @@ fn format_ifd_value(typ: u16, count: u32, bytes: &[u8], le: bool) -> String {
 }
 
 fn u16_at(data: &[u8], off: usize, le: bool) -> u16 {
-    let Some(a) = data.get(off..off + 2).and_then(|s| <[u8; 2]>::try_from(s).ok()) else {
+    let Some(a) = data
+        .get(off..off + 2)
+        .and_then(|s| <[u8; 2]>::try_from(s).ok())
+    else {
         return 0;
     };
     if le {
@@ -241,7 +244,10 @@ fn u16_at(data: &[u8], off: usize, le: bool) -> u16 {
 }
 
 fn u32_at(data: &[u8], off: usize, le: bool) -> u32 {
-    let Some(a) = data.get(off..off + 4).and_then(|s| <[u8; 4]>::try_from(s).ok()) else {
+    let Some(a) = data
+        .get(off..off + 4)
+        .and_then(|s| <[u8; 4]>::try_from(s).ok())
+    else {
         return 0;
     };
     if le {
@@ -317,12 +323,10 @@ fn decode_nikon(data: &[u8], section: &mut Section, warnings: &mut Vec<String>) 
     let tiff_start = if data.starts_with(b"Nikon") {
         if data.len() > 10 && (data[10..].starts_with(b"II") || data[10..].starts_with(b"MM")) {
             10
-        } else if data.len() > 8 && (data[8..].starts_with(b"II") || data[8..].starts_with(b"MM"))
-        {
+        } else if data.len() > 8 && (data[8..].starts_with(b"II") || data[8..].starts_with(b"MM")) {
             8
         } else {
-            warnings
-                .push("Nikon MakerNote: header recognized but no embedded TIFF found".into());
+            warnings.push("Nikon MakerNote: header recognized but no embedded TIFF found".into());
             return false;
         }
     } else if data.starts_with(b"II") || data.starts_with(b"MM") {
@@ -363,7 +367,11 @@ fn decode_canon(data: &[u8], section: &mut Section) -> bool {
     let entries = if data.starts_with(b"II") || data.starts_with(b"MM") {
         read_tiff_ifd_entries(data)
     } else if data.starts_with(b"Canon") {
-        let skip = data.iter().position(|&b| b == 0).map(|i| i + 1).unwrap_or(0);
+        let skip = data
+            .iter()
+            .position(|&b| b == 0)
+            .map(|i| i + 1)
+            .unwrap_or(0);
         read_bare_ifd_entries(&data[skip..], true)
     } else {
         read_bare_ifd_entries(data, true)

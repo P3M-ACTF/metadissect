@@ -122,8 +122,14 @@ pub fn map_to_canonical(key: &str) -> Option<&'static str> {
     match lower.as_str() {
         "creator" | "author" | "byline" | "artist" | "dccreator" | "authors" | "writereditor"
         | "companyname" => Some(CANON_CREATOR),
-        "created" | "creationdate" | "createdate" | "datetimeoriginal"
-        | "datetime" | "datecreated" | "xmpcreatedate" | "digitalcreationdate"
+        "created"
+        | "creationdate"
+        | "createdate"
+        | "datetimeoriginal"
+        | "datetime"
+        | "datecreated"
+        | "xmpcreatedate"
+        | "digitalcreationdate"
         | "creatim" => Some(CANON_CREATED),
         "title" | "objectname" | "headline" | "dctitle" | "tit2" | "productname"
         | "filedescription" => Some(CANON_TITLE),

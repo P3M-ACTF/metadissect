@@ -15,11 +15,7 @@ pub struct EmbedHit {
 }
 
 /// Recursively parse embed bytes into labeled sections (does not recompute hashes).
-pub fn parse_embeds(
-    hits: &[EmbedHit],
-    depth: u8,
-    max_depth: u8,
-) -> (Vec<Section>, Vec<String>) {
+pub fn parse_embeds(hits: &[EmbedHit], depth: u8, max_depth: u8) -> (Vec<Section>, Vec<String>) {
     let mut sections = Vec::new();
     let mut warnings = Vec::new();
     if depth >= max_depth {
@@ -38,8 +34,13 @@ pub fn parse_embeds(
         }
         let magic = inspect_magic(&hit.data);
         let mime = magic.mime.clone();
-        let (nested, warns) =
-            parsers::parse_for_mime_at_depth(&hit.data, &mime, Some(&hit.name), depth + 1, max_depth);
+        let (nested, warns) = parsers::parse_for_mime_at_depth(
+            &hit.data,
+            &mime,
+            Some(&hit.name),
+            depth + 1,
+            max_depth,
+        );
         warnings.extend(warns);
 
         let mut wrap = Section::new(
@@ -80,9 +81,7 @@ fn sanitize_id(name: &str) -> String {
 }
 
 /// Collect likely embedded binaries from an OOXML/ODF/EPUB zip listing.
-pub fn collect_zip_embeds(
-    zip: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>,
-) -> Vec<EmbedHit> {
+pub fn collect_zip_embeds(zip: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>) -> Vec<EmbedHit> {
     use std::io::Read;
     let mut hits = Vec::new();
     let names: Vec<String> = (0..zip.len())

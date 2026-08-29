@@ -56,7 +56,10 @@ pub fn md5_hex(data: &[u8]) -> String {
     hex::encode(Md5::digest(data))
 }
 
-pub fn compare_iptc_digest(iptc_bytes: Option<&[u8]>, stored_digest: Option<&[u8]>) -> DigestStatus {
+pub fn compare_iptc_digest(
+    iptc_bytes: Option<&[u8]>,
+    stored_digest: Option<&[u8]>,
+) -> DigestStatus {
     match (iptc_bytes, stored_digest) {
         (_, None) => DigestStatus::Missing,
         (None, Some(_)) => DigestStatus::NoIptc,
@@ -256,7 +259,11 @@ mod tests {
             .iter()
             .find(|f| f.key == "Byline")
             .unwrap();
-        assert!(byline.explanation.as_deref().unwrap().contains("superseded"));
+        assert!(byline
+            .explanation
+            .as_deref()
+            .unwrap()
+            .contains("superseded"));
         assert_eq!(byline.value, "Iptc Person"); // raw IPTC retained
         assert!(byline.offset.is_some());
     }

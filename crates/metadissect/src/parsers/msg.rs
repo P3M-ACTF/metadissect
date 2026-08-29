@@ -56,7 +56,9 @@ pub fn parse_msg(data: &[u8]) -> (Vec<Section>, Vec<String>) {
     };
 
     let names = stream_names(&cfb);
-    if !names.iter().any(|n| n.contains("__substg1.0_") || n.contains("__properties_version1.0"))
+    if !names
+        .iter()
+        .any(|n| n.contains("__substg1.0_") || n.contains("__properties_version1.0"))
     {
         warnings.push(
             "OLE Compound File opened but no MSG/MAPI streams (__substg1.0_ / __properties) found."
@@ -93,13 +95,13 @@ pub fn parse_msg(data: &[u8]) -> (Vec<Section>, Vec<String>) {
                     _ => {
                         if let Some(key) = known_prop_name(prop_id) {
                             headers.fields.push(
-                                Field::new(key, value)
-                                    .with_namespace("MSG")
-                                    .with_raw(serde_json::json!({
+                                Field::new(key, value).with_namespace("MSG").with_raw(
+                                    serde_json::json!({
                                         "prop_id": format!("0x{prop_id:04X}"),
                                         "prop_type": format!("0x{prop_type:04X}"),
                                         "stream": path,
-                                    })),
+                                    }),
+                                ),
                             );
                         }
                     }
@@ -163,7 +165,10 @@ pub fn parse_msg(data: &[u8]) -> (Vec<Section>, Vec<String>) {
             let mut name = None;
             let mut mime = None;
             let mut cid = None;
-            for path in names.iter().filter(|n| n.starts_with(dir.as_str()) || n.starts_with(&format!("{dir}/"))) {
+            for path in names
+                .iter()
+                .filter(|n| n.starts_with(dir.as_str()) || n.starts_with(&format!("{dir}/")))
+            {
                 if let Some((prop_id, prop_type)) = parse_substg_name(path) {
                     let bytes = read_stream(&mut cfb, path);
                     if let Some(value) = decode_property(prop_id, prop_type, &bytes) {
@@ -204,13 +209,11 @@ fn stream_names<T: Read + std::io::Seek>(cfb: &CompoundFile<T>) -> Vec<String> {
     out
 }
 
-fn walk_storage<T: Read + std::io::Seek>(
-    cfb: &CompoundFile<T>,
-    path: &str,
-    out: &mut Vec<String>,
-) {
+fn walk_storage<T: Read + std::io::Seek>(cfb: &CompoundFile<T>, path: &str, out: &mut Vec<String>) {
     let entries: Vec<_> = match cfb.read_storage(path) {
-        Ok(iter) => iter.map(|e| (e.name().to_string(), e.is_stream(), e.is_storage())).collect(),
+        Ok(iter) => iter
+            .map(|e| (e.name().to_string(), e.is_stream(), e.is_storage()))
+            .collect(),
         Err(_) => return,
     };
     for (name, is_stream, is_storage) in entries {
@@ -440,7 +443,9 @@ mod tests {
         let data = minimal_msg_fixture();
         assert!(looks_like_msg(&data));
         let (secs, warns) = parse_msg(&data);
-        assert!(warns.iter().any(|w| w.contains("subset") || w.contains("not fully")));
+        assert!(warns
+            .iter()
+            .any(|w| w.contains("subset") || w.contains("not fully")));
         let blob: String = secs
             .iter()
             .flat_map(|s| s.fields.iter())

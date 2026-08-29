@@ -31,13 +31,7 @@ pub fn parse_for_mime(
     mime: &str,
     filename: Option<&str>,
 ) -> (Vec<Section>, Vec<String>) {
-    parse_for_mime_at_depth(
-        data,
-        mime,
-        filename,
-        0,
-        embed::DEFAULT_MAX_EMBED_DEPTH,
-    )
+    parse_for_mime_at_depth(data, mime, filename, 0, embed::DEFAULT_MAX_EMBED_DEPTH)
 }
 
 pub fn parse_for_mime_at_depth(
@@ -228,7 +222,8 @@ mod tests {
         assert_eq!(resolved, "image/jpeg");
         let (secs, _) = parse_for_mime(&jpeg, mime, Some("trick.pdf"));
         assert!(
-            secs.iter().any(|s| s.id.contains("jpeg") || s.label.contains("JPEG")),
+            secs.iter()
+                .any(|s| s.id.contains("jpeg") || s.label.contains("JPEG")),
             "expected JPEG sections, got {:?}",
             secs.iter().map(|s| &s.id).collect::<Vec<_>>()
         );

@@ -60,11 +60,7 @@ fn header_section(pe: &PE<'_>) -> Section {
     s.add("Is64", pe.is_64.to_string(), Some(ns));
     s.add("ImageBase", format!("0x{:X}", pe.image_base), Some(ns));
     s.add("EntryPointRva", format!("0x{:X}", pe.entry), Some(ns));
-    s.add(
-        "NumberOfSections",
-        pe.sections.len().to_string(),
-        Some(ns),
-    );
+    s.add("NumberOfSections", pe.sections.len().to_string(), Some(ns));
     s.add(
         "TimeDateStamp",
         format!("0x{:08X}", pe.header.coff_header.time_date_stamp),
@@ -148,11 +144,7 @@ fn sections_section(pe: &PE<'_>, warnings: &mut Vec<String>) -> Section {
     let ns = "PE:Section";
     let mut packer_hints = Vec::new();
     for sec in &pe.sections {
-        let name = sec
-            .name()
-            .unwrap_or("")
-            .trim_end_matches('\0')
-            .to_string();
+        let name = sec.name().unwrap_or("").trim_end_matches('\0').to_string();
         let virt = sec.virtual_size;
         let raw = sec.size_of_raw_data;
         let hint = section_packer_hint(&name, virt, raw);
@@ -433,7 +425,9 @@ fn read_asn1_len(bytes: &[u8]) -> Option<(usize, usize)> {
 /// Find outermost-looking X.509 cert SEQUENCEs and SHA-1 the last one (often leaf in PKCS#7).
 fn extract_leaf_cert_sha1(pkcs7: &[u8]) -> Option<String> {
     // Heuristic: collect DER SEQUENCEs that contain OID rsaEncryption or ecPublicKey and are > 256 bytes.
-    const RSA_OID: &[u8] = &[0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01];
+    const RSA_OID: &[u8] = &[
+        0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01,
+    ];
     let mut candidates = Vec::new();
     let mut i = 0;
     while i + 4 < pkcs7.len() {
@@ -443,7 +437,9 @@ fn extract_leaf_cert_sha1(pkcs7: &[u8]) -> Option<String> {
                 if total >= 256 && i + total <= pkcs7.len() {
                     let slice = &pkcs7[i..i + total];
                     if slice.windows(RSA_OID.len()).any(|w| w == RSA_OID)
-                        || slice.windows(7).any(|w| w == [0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D])
+                        || slice
+                            .windows(7)
+                            .any(|w| w == [0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D])
                     {
                         candidates.push(slice);
                     }
@@ -454,9 +450,7 @@ fn extract_leaf_cert_sha1(pkcs7: &[u8]) -> Option<String> {
         }
         i += 1;
     }
-    candidates
-        .last()
-        .map(|c| hex::encode(Sha1::digest(c)))
+    candidates.last().map(|c| hex::encode(Sha1::digest(c)))
 }
 
 /// Subset of Rich Header product IDs (CompID prod field) → human label.
@@ -675,7 +669,10 @@ mod tests {
             a.mime,
             a.sections.iter().map(|s| &s.id).collect::<Vec<_>>()
         );
-        assert!(a.sections.iter().any(|s| s.id == "pe-header" || s.id == "pe-rich"));
+        assert!(a
+            .sections
+            .iter()
+            .any(|s| s.id == "pe-header" || s.id == "pe-rich"));
     }
 
     #[test]
@@ -685,10 +682,7 @@ mod tests {
         der.push(0x0C);
         der.push(11);
         der.extend_from_slice(b"MetaDissect");
-        assert_eq!(
-            extract_best_effort_cn(&der).as_deref(),
-            Some("MetaDissect")
-        );
+        assert_eq!(extract_best_effort_cn(&der).as_deref(), Some("MetaDissect"));
     }
 
     #[test]

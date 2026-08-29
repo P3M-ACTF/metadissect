@@ -7,11 +7,7 @@ pub fn parse_pdf(data: &[u8]) -> (Vec<Section>, Vec<String>) {
     parse_pdf_at_depth(data, 0, embed::DEFAULT_MAX_EMBED_DEPTH)
 }
 
-pub fn parse_pdf_at_depth(
-    data: &[u8],
-    depth: u8,
-    max_depth: u8,
-) -> (Vec<Section>, Vec<String>) {
+pub fn parse_pdf_at_depth(data: &[u8], depth: u8, max_depth: u8) -> (Vec<Section>, Vec<String>) {
     let mut sections = Vec::new();
     let mut warnings = Vec::new();
 
