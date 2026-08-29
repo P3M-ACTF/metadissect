@@ -104,6 +104,7 @@ pub async fn fetch_and_analyze_with(
     options.response_headers = headers;
     options.verbose = extra.verbose;
     options.max_embed_depth = extra.max_embed_depth;
+    options.trust_anchors = extra.trust_anchors.clone();
     if mime_hint.is_some() {
         options.filename = options.filename.filter(|n| n.contains('.'));
         if options.filename.is_none() {

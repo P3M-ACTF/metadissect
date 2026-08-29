@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -199,9 +200,16 @@ pub struct AnalyzeOptions {
     pub response_headers: Vec<(String, String)>,
     /// Max recursion depth for nested embeds (OOXML/PDF). Default: 2.
     pub max_embed_depth: u8,
-    /// When true, PNG `png-chunks` lists every chunk (including each IDAT).
-    /// Default compact mode aggregates IDAT into `IDATCount` / `IDATBytes`.
+    /// When true, PNG `png-chunks` lists every chunk (including each IDAT)
+    /// and C2PA validation warnings include one line per status code.
+    /// Default compact mode aggregates IDAT into `IDATCount` / `IDATBytes`
+    /// and collapses C2PA status codes into a single summary line.
     pub verbose: bool,
+    /// Optional PEM file or directory of PEM/CRT files used as C2PA trust
+    /// anchors (`Settings.trust.trust_anchors`). When `None`, the env var
+    /// `C2PA_TRUST_ANCHORS` is consulted. The official CAI trust list is
+    /// **not** bundled — `Valid ≠ Trusted` is expected without a list.
+    pub trust_anchors: Option<PathBuf>,
 }
 
 impl Default for AnalyzeOptions {
@@ -218,6 +226,7 @@ impl Default for AnalyzeOptions {
             response_headers: Vec::new(),
             max_embed_depth: crate::embed::DEFAULT_MAX_EMBED_DEPTH,
             verbose: false,
+            trust_anchors: None,
         }
     }
 }
@@ -233,6 +242,12 @@ impl AnalyzeOptions {
 
     pub fn with_verbose(mut self, verbose: bool) -> Self {
         self.verbose = verbose;
+        self
+    }
+
+    /// Set a PEM file or directory of trust-anchor certificates for C2PA verification.
+    pub fn with_trust_anchors(mut self, path: Option<PathBuf>) -> Self {
+        self.trust_anchors = path;
         self
     }
 }

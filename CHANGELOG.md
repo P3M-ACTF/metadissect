@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.0
+
+- **C2PA trust anchors:** `--trust-anchors PATH` (PEM file or directory of `.pem`/`.crt`/`.cer`) and env `C2PA_TRUST_ANCHORS` are passed to the CAI crate as `Settings.trust.trust_anchors`. Without the official CAI trust list (not bundled), `Valid ≠ Trusted` is the expected result.
+- **CLI extract:** `metadissect extract <file> --c2pa-icon|--thumbnail|--assertion LABEL -o OUT` writes binary or JSON to disk; the analysis table does not dump those blobs.
+- **C2PA ingredients:** new `c2pa-ingredients` section (titles, hashes, relationship / parentOf) from `c2pa.ingredient` / v3 when present.
+- **C2PA warnings:** one summary line by default; per-status-code detail only with `AnalyzeOptions.verbose` / CLI `-v`.
+
+### Qué no entra / Out of scope (this cycle)
+
+- Full ExifTool tag parity
+- Official CAI trust list bundled in the binary
+- Fetch of remote C2PA manifests (stays local-only)
+- crates.io `cargo publish` (still needs `cargo login`)
+- Phase C parsers: OLE CFBF `.doc/.xls/.ppt`, C2PA-in-PDF crate feature, deeper MakerNotes, Authenticode chain validation, PST, HEIC item/iloc, deep ICC, full PAdES
+- ExifTool `--compare` / `-G` style dump
+- MetaTrace/MetaFake private Actions (org billing)
+
 ## 0.9.0
 
 - **C2PA actions:** promote `softwareAgent` / `version` / `digitalSourceType` and a short parameters summary to flat fields (`Action[i].SoftwareAgent`, `.Version`, `.DigitalSourceType`, `.Parameters`). Full Action JSON remains in `Field.raw`.

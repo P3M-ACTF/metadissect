@@ -406,7 +406,10 @@ mod tests {
             "IHDR should remain"
         );
         assert!(
-            compact.fields.iter().any(|f| f.key.contains("tEXt") || f.key.contains("IEND")),
+            compact
+                .fields
+                .iter()
+                .any(|f| f.key.contains("tEXt") || f.key.contains("IEND")),
             "interesting chunks should remain"
         );
     }

@@ -1,12 +1,24 @@
 # MetaDissect
 
-Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.9.0). Binario: `metadissect`.
+Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.10.0). Binario: `metadissect`.
 
 ## Qué es / qué no es
 
-**Es:** librería + CLI + API HTTP JSON opcional. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML/MSG, WARC, HTML/JSON, C2PA/JUMBF, PE/ELF/Mach-O, MakerNotes parciales, etc.). Comandos: `analyze`, `fetch`, `html`, `json`, `serve --api`. Formatos: `table`, `json`, `markdown`, `csv`.
+**Es:** librería + CLI + API HTTP JSON opcional. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML/MSG, WARC, HTML/JSON, C2PA/JUMBF, PE/ELF/Mach-O, MakerNotes parciales, etc.). Comandos: `analyze`, `fetch`, `extract`, `html`, `json`, `serve --api`. Formatos: `table`, `json`, `markdown`, `csv`.
 
 **No es:** interfaz web educativa (eso es MetaInstructor), crawler ni FOCA. Sin UI. No descarga manifiestos C2PA remotos ni incluye la lista de confianza C2PA oficial (firma válida ≠ `Trusted`). No valida cadenas Authenticode (solo lista certificados).
+
+## Qué no entra (este ciclo)
+
+- Paridad total de tags con ExifTool
+- Lista de confianza CAI oficial embebida en el binario
+- Descarga de manifiestos C2PA remotos (sigue siendo solo local)
+- `cargo publish` en crates.io (hace falta `cargo login`)
+- Parsers de la Fase C: OLE CFBF `.doc/.xls/.ppt`, feature C2PA-in-PDF del crate, MakerNotes más profundos, validación de cadena Authenticode, PST, HEIC item/iloc, ICC profundo, PAdES completo
+- Dump estilo ExifTool `--compare` / `-G`
+- Actions privadas de MetaTrace/MetaFake (facturación de la org)
+
+`--trust-anchors` / `C2PA_TRUST_ANCHORS` alimentan el verificador CAI (`Settings.trust.trust_anchors`). Sin la lista oficial, **`Valid ≠ Trusted` es lo normal**.
 
 ## Familia MetaDissect
 
@@ -51,6 +63,10 @@ metadissect html --file page.html -f csv
 metadissect json --file data.json
 metadissect imagen.png --sections c2pa,normalized,general
 metadissect imagen.png --verbose
+metadissect imagen.png --trust-anchors ./c2pa-trust.pem
+metadissect extract imagen.png --assertion c2pa.actions -o actions.json
+metadissect extract imagen.png --thumbnail -o thumb.jpg
+metadissect extract imagen.png --c2pa-icon -o icon.bin
 ```
 
 ## API HTTP JSON (sin UI)
@@ -106,13 +122,25 @@ El análisis es local. Una URL solo se descarga si usas `fetch` o `POST /api/fet
 
 ## English
 
-**MetaDissect** is a Rust **library + CLI + optional JSON HTTP API** (v0.9.0) for exhaustive local metadata analysis. Binary: `metadissect`.
+**MetaDissect** is a Rust **library + CLI + optional JSON HTTP API** (v0.10.0) for exhaustive local metadata analysis. Binary: `metadissect`.
 
 ### What it is / is not
 
-**Is:** library, CLI, and thin JSON API (`serve --api`). Commands: `analyze`, `fetch`, `html`, `json`, `serve`. Output: `table`, `json`, `markdown`, `csv`. Includes C2PA/JUMBF (feature `c2pa`, default), PE/ELF/Mach-O, WARC, Outlook MSG (subset), and pragmatic MakerNote vendor/subset decode.
+**Is:** library, CLI, and thin JSON API (`serve --api`). Commands: `analyze`, `fetch`, `extract`, `html`, `json`, `serve`. Output: `table`, `json`, `markdown`, `csv`. Includes C2PA/JUMBF (feature `c2pa`, default), PE/ELF/Mach-O, WARC, Outlook MSG (subset), and pragmatic MakerNote vendor/subset decode.
 
 **Is not:** an educational web UI (see MetaInstructor), crawler, or FOCA-like tool. Does not fetch remote C2PA manifests or ship the official C2PA trust list. Authenticode is listed, not chain-validated.
+
+### Out of scope (this cycle)
+
+- Full ExifTool tag parity
+- Official CAI trust list bundled in the binary
+- Fetch of remote C2PA manifests (stays local-only)
+- crates.io `cargo publish` (still needs `cargo login`)
+- Phase C parsers: OLE CFBF `.doc/.xls/.ppt`, C2PA-in-PDF crate feature, deeper MakerNotes, Authenticode chain validation, PST, HEIC item/iloc, deep ICC, full PAdES
+- ExifTool `--compare` / `-G` style dump
+- MetaTrace/MetaFake private Actions (org billing)
+
+`--trust-anchors` / `C2PA_TRUST_ANCHORS` feed the CAI verifier (`Settings.trust.trust_anchors`). Without the official list, **`Valid ≠ Trusted` is normal**.
 
 ### Family
 
@@ -136,6 +164,8 @@ From [Releases](https://github.com/P3M-ACTF/metadissect/releases), or `cargo bui
 ```bash
 metadissect foto.jpg
 metadissect analyze documento.pdf -f json
+metadissect imagen.png --trust-anchors ./c2pa-trust.pem
+metadissect extract imagen.png --assertion c2pa.actions -o actions.json
 metadissect serve --api   # http://127.0.0.1:8787
 ```
 

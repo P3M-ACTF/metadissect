@@ -106,7 +106,14 @@ pub fn analyze_buffer(data: &[u8], options: AnalyzeOptions) -> Analysis {
 
     #[cfg(feature = "c2pa")]
     {
-        let (c2pa_secs, c2pa_warns) = crate::c2pa_support::extract(data, &analysis.mime);
+        let (c2pa_secs, c2pa_warns) = crate::c2pa_support::extract_with(
+            data,
+            &analysis.mime,
+            &crate::c2pa_support::C2paOptions {
+                verbose: options.verbose,
+                trust_anchors: options.trust_anchors.clone(),
+            },
+        );
         analysis.warnings.extend(c2pa_warns);
         for s in c2pa_secs {
             analysis.push_section(s);
@@ -168,6 +175,7 @@ fn analyze_path_from_bytes_with(
     let mut options = AnalyzeOptions::from_filename(filename);
     options.verbose = extra.verbose;
     options.max_embed_depth = extra.max_embed_depth;
+    options.trust_anchors = extra.trust_anchors.clone();
     options.file_size = Some(meta.len());
     if let Ok(mtime) = meta.modified() {
         options.mtime = Some(to_rfc(mtime));

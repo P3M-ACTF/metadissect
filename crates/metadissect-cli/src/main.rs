@@ -1,7 +1,7 @@
 mod api;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
 use metadissect::export::{to_csv, to_json, to_markdown};
 use metadissect::{
     analyze_html_string, analyze_json_string, analyze_path_with_options, AnalyzeOptions,
@@ -21,12 +21,15 @@ struct Cli {
     path: Option<PathBuf>,
     #[arg(long, short = 'f', default_value = "table", global = true)]
     format: OutputFormat,
-    /// Full PNG chunk list and longer field values
+    /// Full PNG chunk list, longer field values, and per-code C2PA validation warnings
     #[arg(short = 'v', long, global = true)]
     verbose: bool,
     /// Only show these section ids (comma-separated), e.g. c2pa,normalized,general
     #[arg(long, value_delimiter = ',', global = true)]
     sections: Option<Vec<String>>,
+    /// PEM file or directory of C2PA trust-anchor certificates (env: C2PA_TRUST_ANCHORS)
+    #[arg(long, global = true, value_name = "PATH", env = "C2PA_TRUST_ANCHORS")]
+    trust_anchors: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -45,6 +48,28 @@ enum Command {
     },
     /// Fetch a public URL (SSRF-safe) and analyze it
     Fetch { url: String },
+    /// Write a C2PA icon, thumbnail, or named assertion to disk (no table dump)
+    #[command(group(
+        ArgGroup::new("payload")
+            .required(true)
+            .args(["c2pa_icon", "thumbnail", "assertion"])
+    ))]
+    Extract {
+        /// Asset that contains a C2PA manifest
+        path: PathBuf,
+        /// Claim-generator / `c2pa.icon` binary
+        #[arg(long)]
+        c2pa_icon: bool,
+        /// Active-manifest thumbnail
+        #[arg(long)]
+        thumbnail: bool,
+        /// Assertion label (`c2pa.actions`, `c2pa.ingredient`, …) — JSON or binary
+        #[arg(long, value_name = "LABEL")]
+        assertion: Option<String>,
+        /// Output file
+        #[arg(short = 'o', long, value_name = "OUT")]
+        output: PathBuf,
+    },
     /// JSON HTTP API only (no web UI). Requires `--api`.
     Serve {
         /// Enable the JSON API (MetaDissect has no educational UI)
@@ -71,6 +96,7 @@ struct DisplayOpts {
     format: OutputFormat,
     verbose: bool,
     sections: Option<Vec<String>>,
+    trust_anchors: Option<PathBuf>,
 }
 
 impl DisplayOpts {
@@ -79,7 +105,14 @@ impl DisplayOpts {
             format: cli.format,
             verbose: cli.verbose,
             sections: cli.sections.clone(),
+            trust_anchors: cli.trust_anchors.clone(),
         }
+    }
+
+    fn analyze_options(&self) -> AnalyzeOptions {
+        AnalyzeOptions::default()
+            .with_verbose(self.verbose)
+            .with_trust_anchors(self.trust_anchors.clone())
     }
 }
 
@@ -112,12 +145,18 @@ async fn main() -> Result<()> {
             print_analysis(&a, &display)?;
         }
         Some(Command::Fetch { url }) => {
-            let a = metadissect::fetch::fetch_and_analyze_with(
-                &url,
-                AnalyzeOptions::default().with_verbose(display.verbose),
-            )
-            .await?;
+            let a =
+                metadissect::fetch::fetch_and_analyze_with(&url, display.analyze_options()).await?;
             print_analysis(&a, &display)?;
+        }
+        Some(Command::Extract {
+            path,
+            c2pa_icon,
+            thumbnail,
+            assertion,
+            output,
+        }) => {
+            run_extract(&path, c2pa_icon, thumbnail, assertion.as_deref(), &output)?;
         }
         Some(Command::Serve {
             api: enable_api,
@@ -134,7 +173,7 @@ async fn main() -> Result<()> {
         None => {
             let path = cli.path.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "pass a file path or a subcommand (analyze, fetch, html, json, serve)"
+                    "pass a file path or a subcommand (analyze, fetch, extract, html, json, serve)"
                 )
             })?;
             print_analysis_path(&path, &display)?;
@@ -144,11 +183,52 @@ async fn main() -> Result<()> {
 }
 
 fn print_analysis_path(path: &Path, display: &DisplayOpts) -> Result<()> {
-    let a = analyze_path_with_options(
-        path,
-        AnalyzeOptions::default().with_verbose(display.verbose),
-    )?;
+    let a = analyze_path_with_options(path, display.analyze_options())?;
     print_analysis(&a, display)
+}
+
+fn run_extract(
+    path: &Path,
+    c2pa_icon: bool,
+    thumbnail: bool,
+    assertion: Option<&str>,
+    output: &Path,
+) -> Result<()> {
+    let data = std::fs::read(path)?;
+    let mut mime = metadissect::magic::inspect_magic(&data).mime;
+    if mime.contains("octet-stream") {
+        if let Some(hint) = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .and_then(metadissect::magic::mime_from_filename)
+        {
+            mime = hint.to_string();
+        }
+    }
+    let kind = if c2pa_icon {
+        metadissect::c2pa_support::C2paExtractKind::Icon
+    } else if thumbnail {
+        metadissect::c2pa_support::C2paExtractKind::Thumbnail
+    } else {
+        let label = assertion.ok_or_else(|| {
+            anyhow::anyhow!("specify --c2pa-icon, --thumbnail, or --assertion LABEL")
+        })?;
+        metadissect::c2pa_support::C2paExtractKind::Assertion(label.to_string())
+    };
+    let payload = metadissect::c2pa_support::extract_payload(&data, &mime, kind)?;
+    if let Some(parent) = output.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+    std::fs::write(output, &payload.bytes)?;
+    eprintln!(
+        "wrote {} bytes ({}) to {}",
+        payload.bytes.len(),
+        payload.content_type,
+        output.display()
+    );
+    Ok(())
 }
 
 fn print_analysis(a: &metadissect::Analysis, display: &DisplayOpts) -> Result<()> {
@@ -169,8 +249,7 @@ fn filter_analysis(
     let mut out = a.clone();
     if let Some(filter) = sections {
         if !filter.is_empty() {
-            out.sections
-                .retain(|s| section_matches(&s.id, filter));
+            out.sections.retain(|s| section_matches(&s.id, filter));
         }
     }
     Ok(out)
