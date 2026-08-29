@@ -186,7 +186,7 @@ impl Analysis {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct AnalyzeOptions {
     pub filename: Option<String>,
     pub source: Option<Source>,
@@ -197,6 +197,25 @@ pub struct AnalyzeOptions {
     pub atime: Option<String>,
     pub source_url: Option<String>,
     pub response_headers: Vec<(String, String)>,
+    /// Max recursion depth for nested embeds (OOXML/PDF). Default: 2.
+    pub max_embed_depth: u8,
+}
+
+impl Default for AnalyzeOptions {
+    fn default() -> Self {
+        Self {
+            filename: None,
+            source: None,
+            include_hashes: false,
+            file_size: None,
+            mtime: None,
+            ctime: None,
+            atime: None,
+            source_url: None,
+            response_headers: Vec::new(),
+            max_embed_depth: crate::embed::DEFAULT_MAX_EMBED_DEPTH,
+        }
+    }
 }
 
 impl AnalyzeOptions {

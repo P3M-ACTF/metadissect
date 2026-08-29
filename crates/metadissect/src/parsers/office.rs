@@ -1,3 +1,4 @@
+use crate::embed;
 use crate::parsers::xmp;
 use crate::types::{Field, Section};
 use std::io::{Cursor, Read};
@@ -15,6 +16,15 @@ pub fn is_office_mime(mime: &str) -> bool {
 }
 
 pub fn parse_office(data: &[u8], mime: &str) -> (Vec<Section>, Vec<String>) {
+    parse_office_at_depth(data, mime, 0, embed::DEFAULT_MAX_EMBED_DEPTH)
+}
+
+pub fn parse_office_at_depth(
+    data: &[u8],
+    mime: &str,
+    depth: u8,
+    max_depth: u8,
+) -> (Vec<Section>, Vec<String>) {
     if mime.contains("rtf") || data.starts_with(b"{\\rtf") {
         return parse_rtf(data);
     }
@@ -22,15 +32,24 @@ pub fn parse_office(data: &[u8], mime: &str) -> (Vec<Section>, Vec<String>) {
         let mut s = Section::new("ole", "OLE Compound File");
         s.add("Signature", "D0 CF 11 E0 A1 B1 1A E1", Some("OLE"));
         s.add("Size", data.len().to_string(), Some("OLE"));
+        s.add("EmbedDepth", depth.to_string(), Some("OLE"));
         return (
             vec![s],
             vec!["Legacy Office (.doc/.xls/.ppt) OLE/CFBF is detected but not parsed. Export to OOXML or use MetaTrace + ExifTool.".into()],
         );
     }
-    parse_zip_xml_package(data)
+    parse_zip_xml_package_at_depth(data, depth, max_depth)
 }
 
 pub fn parse_zip_xml_package(data: &[u8]) -> (Vec<Section>, Vec<String>) {
+    parse_zip_xml_package_at_depth(data, 0, embed::DEFAULT_MAX_EMBED_DEPTH)
+}
+
+pub fn parse_zip_xml_package_at_depth(
+    data: &[u8],
+    depth: u8,
+    max_depth: u8,
+) -> (Vec<Section>, Vec<String>) {
     let mut sections = Vec::new();
     let mut warnings = Vec::new();
     let cursor = Cursor::new(data);
@@ -132,6 +151,15 @@ pub fn parse_zip_xml_package(data: &[u8]) -> (Vec<Section>, Vec<String>) {
             }
         }
     }
+
+    let hits = embed::collect_zip_embeds(&mut zip);
+    if !hits.is_empty() {
+        listing.add("EmbedCandidateCount", hits.len().to_string(), Some("Embed"));
+        let (embed_secs, embed_warns) = embed::parse_embeds(&hits, depth, max_depth);
+        warnings.extend(embed_warns);
+        sections.extend(embed_secs);
+    }
+
     sections.insert(0, listing);
     (sections, warnings)
 }

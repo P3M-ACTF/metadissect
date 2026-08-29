@@ -5,6 +5,7 @@
 //! MetaInstructor (`meta-explain`); this crate keeps technical `warnings` only.
 
 pub mod analyze;
+pub mod embed;
 pub mod entropy;
 pub mod error;
 pub mod export;
@@ -12,6 +13,8 @@ pub mod fetch;
 pub mod fixture_jpeg;
 pub mod hashes;
 pub mod magic;
+pub mod mwg;
+pub mod normalize;
 pub mod parsers;
 pub mod text;
 pub mod types;
@@ -134,6 +137,136 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w.contains("OLE") || w.contains("not parsed")));
+    }
+
+    #[test]
+    fn magic_first_ignores_wrong_extension() {
+        let jpeg = rich_exif_jpeg();
+        let a = analyze_buffer(&jpeg, AnalyzeOptions::from_filename("disguised.pdf"));
+        assert_eq!(a.mime, "image/jpeg");
+        assert!(a.find_field("Make").is_some() || a.field_count() > 10);
+        assert!(a.sections.iter().any(|s| s.id == "normalized"));
+    }
+
+    #[test]
+    fn mwg_out_of_sync_marks_iptc() {
+        // Build minimal Photoshop APP13: IPTC Byline + wrong digest + XMP APP1
+        let iptc_payload = {
+            let mut v = Vec::new();
+            // 0x1C 02 50 (Byline) + len + "Iptc"
+            v.extend_from_slice(&[0x1C, 0x02, 0x50, 0x00, 0x04]);
+            v.extend_from_slice(b"Iptc");
+            v
+        };
+        let digest = [0u8; 16]; // deliberately wrong
+        let irb = build_irb(&[(0x0404, &iptc_payload), (0x0425, &digest)]);
+        let mut app13 = b"Photoshop 3.0\0".to_vec();
+        app13.extend_from_slice(&irb);
+
+        let xmp = br#"<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>XmpPerson</dc:creator></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>"#;
+        let mut app1_xmp = b"http://ns.adobe.com/xap/1.0/\0".to_vec();
+        app1_xmp.extend_from_slice(xmp);
+
+        let jpeg = assemble_jpeg_with_apps(&[&app1_xmp], &app13);
+        let a = analyze_buffer(&jpeg, AnalyzeOptions::from_filename("mwg.jpg"));
+        assert!(
+            a.warnings.iter().any(|w| w.contains("MWG") && w.contains("XMP")),
+            "warnings={:?}",
+            a.warnings
+        );
+        let mwg = a.sections.iter().find(|s| s.id == "mwg").expect("mwg section");
+        assert!(mwg.fields.iter().any(|f| f.key == "Precedence" && f.value.contains("xmp")));
+        let byline = a
+            .sections
+            .iter()
+            .flat_map(|s| s.fields.iter())
+            .find(|f| f.key == "Byline")
+            .expect("Byline");
+        assert!(
+            byline.explanation.as_deref().unwrap_or("").contains("superseded")
+                || byline.value == "Iptc",
+            "byline={byline:?}"
+        );
+    }
+
+    #[test]
+    fn zip_nested_jpeg_embed_is_parsed() {
+        let jpeg = {
+            let j = rich_exif_jpeg();
+            assert_eq!(&j[0..2], &[0xFF, 0xD8]);
+            j
+        };
+        let zip_bytes = build_zip_with_media_jpeg(&jpeg);
+        let a = analyze_buffer(&zip_bytes, AnalyzeOptions::from_filename("pack.docx"));
+        assert!(
+            a.sections.iter().any(|s| {
+                s.id.starts_with("embed")
+                    || s.fields.iter().any(|f| f.key == "EmbedAnchor" || f.key == "EmbedMime")
+            }),
+            "expected embed sections, got {:?}",
+            a.sections.iter().map(|s| &s.id).collect::<Vec<_>>()
+        );
+    }
+
+    fn build_irb(resources: &[(u16, &[u8])]) -> Vec<u8> {
+        let mut out = Vec::new();
+        for &(id, payload) in resources {
+            out.extend_from_slice(b"8BIM");
+            out.extend_from_slice(&id.to_be_bytes());
+            out.push(0); // empty Pascal name
+            // name padding already even (1 byte name_len + 0 name = odd → pad 1)
+            out.push(0);
+            out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+            out.extend_from_slice(payload);
+            if payload.len() % 2 == 1 {
+                out.push(0);
+            }
+        }
+        out
+    }
+
+    fn assemble_jpeg_with_apps(app1s: &[&[u8]], app13: &[u8]) -> Vec<u8> {
+        let mut out = vec![0xFF, 0xD8]; // SOI
+        for payload in app1s {
+            out.push(0xFF);
+            out.push(0xE1);
+            let len = (payload.len() + 2) as u16;
+            out.extend_from_slice(&len.to_be_bytes());
+            out.extend_from_slice(payload);
+        }
+        out.push(0xFF);
+        out.push(0xED);
+        let len = (app13.len() + 2) as u16;
+        out.extend_from_slice(&len.to_be_bytes());
+        out.extend_from_slice(app13);
+        // minimal SOF0 + SOS + EOI stub
+        out.extend_from_slice(&[
+            0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xFF,
+            0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, 0xFF, 0xD9,
+        ]);
+        out
+    }
+
+    fn build_zip_with_media_jpeg(jpeg: &[u8]) -> Vec<u8> {
+        use std::io::Write;
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        {
+            let mut zip = zip::ZipWriter::new(&mut cursor);
+            let opts = zip::write::SimpleFileOptions::default();
+            zip.start_file("word/media/image1.jpg", opts).unwrap();
+            zip.write_all(jpeg).unwrap();
+            zip.start_file(
+                "docProps/core.xml",
+                opts,
+            )
+            .unwrap();
+            zip.write_all(
+                br#"<?xml version="1.0"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>EmbedTest</dc:creator><dc:title>Nested</dc:title></cp:coreProperties>"#,
+            )
+            .unwrap();
+            zip.finish().unwrap();
+        }
+        cursor.into_inner()
     }
 
     #[test]

@@ -1,6 +1,7 @@
 use crate::entropy::shannon_entropy;
 use crate::hashes::compute_hashes;
 use crate::magic::{inspect_magic, mime_from_filename};
+use crate::normalize;
 use crate::parsers;
 use crate::types::{Analysis, AnalyzeOptions, Field, Section, Source};
 use std::fs;
@@ -8,13 +9,11 @@ use std::path::Path;
 
 pub fn analyze_buffer(data: &[u8], options: AnalyzeOptions) -> Analysis {
     let mut magic = inspect_magic(data);
-    if let Some(name) = options.filename.as_deref() {
-        if let Some(hint) = mime_from_filename(name) {
-            if magic.mime == "application/octet-stream" || magic.mime == "text/plain" {
+    // Extension only as fallback when magic is unknown / octet-stream.
+    if parsers::is_unknown_mime(&magic.mime) {
+        if let Some(name) = options.filename.as_deref() {
+            if let Some(hint) = mime_from_filename(name) {
                 magic.mime = hint.to_string();
-            }
-            if name.ends_with(".html") || name.ends_with(".htm") {
-                magic.mime = "text/html".into();
             }
         }
     }
@@ -92,11 +91,21 @@ pub fn analyze_buffer(data: &[u8], options: AnalyzeOptions) -> Analysis {
         analysis.push_section(hs);
     }
 
-    let (secs, warns) = parsers::parse_for_mime(data, &analysis.mime, options.filename.as_deref());
+    let max_depth = options.max_embed_depth;
+    let (secs, warns) = parsers::parse_for_mime_at_depth(
+        data,
+        &analysis.mime,
+        options.filename.as_deref(),
+        0,
+        max_depth,
+    );
     analysis.warnings.extend(warns);
     for s in secs {
         analysis.push_section(s);
     }
+
+    let normalized = normalize::build_normalized_section(&analysis.sections);
+    analysis.push_section(normalized);
 
     if analysis.mime.contains("heic") || analysis.mime.contains("heif") {
         analysis.warnings.push(

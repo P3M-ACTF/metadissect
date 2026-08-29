@@ -10,7 +10,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/P3M-ACTF/metadissect"
@@ -19,7 +19,7 @@ rust-version = "1.89"
 description = "Core library and CLI for exhaustive local metadata extraction."
 
 [workspace.dependencies]
-metadissect = { path = "crates/metadissect", version = "0.3.0" }
+metadissect = { path = "crates/metadissect", version = "0.4.0" }
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
 serde = { version = "1", features = ["derive"] }

@@ -1,8 +1,17 @@
+use crate::embed;
 use crate::parsers::xmp;
 use crate::types::{Field, Section};
 use lopdf::{Document, Object};
 
 pub fn parse_pdf(data: &[u8]) -> (Vec<Section>, Vec<String>) {
+    parse_pdf_at_depth(data, 0, embed::DEFAULT_MAX_EMBED_DEPTH)
+}
+
+pub fn parse_pdf_at_depth(
+    data: &[u8],
+    depth: u8,
+    max_depth: u8,
+) -> (Vec<Section>, Vec<String>) {
     let mut sections = Vec::new();
     let mut warnings = Vec::new();
 
@@ -71,6 +80,18 @@ pub fn parse_pdf(data: &[u8]) -> (Vec<Section>, Vec<String>) {
             }
         }
     }
+
+    let (hits, embed_scan_warns) = embed::collect_pdf_embeds(data);
+    warnings.extend(embed_scan_warns);
+    if !hits.is_empty() {
+        let mut emb = Section::new("pdf-embeds", "PDF embedded files");
+        emb.add("EmbedCandidateCount", hits.len().to_string(), Some("Embed"));
+        sections.push(emb);
+        let (embed_secs, embed_warns) = embed::parse_embeds(&hits, depth, max_depth);
+        warnings.extend(embed_warns);
+        sections.extend(embed_secs);
+    }
+
     (sections, warnings)
 }
 

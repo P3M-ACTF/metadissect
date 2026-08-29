@@ -1,5 +1,15 @@
 use crate::types::{Field, Section};
 
+/// Photoshop IRB parse result including MWG IPTCDigest inputs.
+pub struct PhotoshopParse {
+    pub sections: Vec<Section>,
+    pub warnings: Vec<String>,
+    /// Raw IPTC-NAA bytes from resource 0x0404 (for digest verification).
+    pub iptc_bytes: Option<Vec<u8>>,
+    /// Stored Caption/IPTC digest from resource 0x0425 (16 bytes MD5).
+    pub iptc_digest: Option<Vec<u8>>,
+}
+
 /// Parse IPTC-IIM records (0x1C marker).
 pub fn parse_iptc_iim(data: &[u8], base_offset: u64) -> Section {
     let mut section = Section::new("iptc-iim", "IPTC/IIM");
@@ -43,9 +53,13 @@ pub fn parse_iptc_iim(data: &[u8], base_offset: u64) -> Section {
     section
 }
 
-pub fn parse_photoshop_irb(data: &[u8], base_offset: u64) -> (Vec<Section>, Vec<String>) {
-    let mut sections = Vec::new();
-    let mut warnings = Vec::new();
+pub fn parse_photoshop_irb(data: &[u8], base_offset: u64) -> PhotoshopParse {
+    let mut out = PhotoshopParse {
+        sections: Vec::new(),
+        warnings: Vec::new(),
+        iptc_bytes: None,
+        iptc_digest: None,
+    };
     let mut i = 0;
     while i + 12 <= data.len() {
         if &data[i..i + 4] != b"8BIM" {
@@ -69,10 +83,22 @@ pub fn parse_photoshop_irb(data: &[u8], base_offset: u64) -> (Vec<Section>, Vec<
         let data_end = (data_start + size).min(data.len());
         let payload = &data[data_start..data_end];
         if resid == 0x0404 {
+            out.iptc_bytes = Some(payload.to_vec());
             let iptc = parse_iptc_iim(payload, base_offset + data_start as u64);
             if !iptc.is_empty() {
-                sections.push(iptc);
+                out.sections.push(iptc);
             }
+        } else if resid == 0x0425 {
+            // CaptionDigest / IPTCDigest — typically 16-byte MD5
+            out.iptc_digest = Some(payload.to_vec());
+            let mut sec = Section::new("photoshop-iptcdigest", "Photoshop IPTCDigest");
+            sec.fields.push(
+                Field::new("IptcDigest", hex::encode(payload))
+                    .with_namespace("Photoshop:IRB")
+                    .with_span(base_offset + data_start as u64, payload.len() as u64)
+                    .with_raw(serde_json::json!({ "resource": "0x0425" })),
+            );
+            out.sections.push(sec);
         } else {
             let mut sec = Section::new(format!("photoshop-{resid:04x}"), "Photoshop IRB");
             let name = if name_len > 0 && i + 7 + name_len <= data.len() {
@@ -89,7 +115,7 @@ pub fn parse_photoshop_irb(data: &[u8], base_offset: u64) -> (Vec<Section>, Vec<
                 .with_span(base_offset + i as u64, (data_end - i) as u64),
             );
             if !sec.is_empty() {
-                sections.push(sec);
+                out.sections.push(sec);
             }
         }
         let mut next = data_end;
@@ -97,12 +123,12 @@ pub fn parse_photoshop_irb(data: &[u8], base_offset: u64) -> (Vec<Section>, Vec<
             next += 1;
         }
         if next <= i {
-            warnings.push("Photoshop IRB parser stuck".into());
+            out.warnings.push("Photoshop IRB parser stuck".into());
             break;
         }
         i = next;
     }
-    (sections, warnings)
+    out
 }
 
 fn iptc_name(rec: u8, ds: u8) -> String {

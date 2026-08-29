@@ -1,3 +1,4 @@
+use crate::mwg;
 use crate::parsers::{iptc, tiff, xmp};
 use crate::types::{Field, Section};
 
@@ -6,6 +7,8 @@ pub struct JpegParse {
     pub warnings: Vec<String>,
     pub pixel_width: Option<u32>,
     pub pixel_height: Option<u32>,
+    pub iptc_bytes: Option<Vec<u8>>,
+    pub iptc_digest: Option<Vec<u8>>,
 }
 
 pub fn parse_jpeg(data: &[u8]) -> JpegParse {
@@ -14,6 +17,8 @@ pub fn parse_jpeg(data: &[u8]) -> JpegParse {
         warnings: Vec::new(),
         pixel_width: None,
         pixel_height: None,
+        iptc_bytes: None,
+        iptc_digest: None,
     };
     if data.len() < 4 || data[0] != 0xFF || data[1] != 0xD8 {
         out.warnings.push("Not a JPEG (missing SOI)".into());
@@ -126,6 +131,17 @@ pub fn parse_jpeg(data: &[u8]) -> JpegParse {
     }
 
     out.sections.insert(0, markers);
+
+    // MWG: IPTCDigest + XMP vs IPTC precedence
+    let (mwg_sec, mwg_warns) = mwg::reconcile(
+        &mut out.sections,
+        out.iptc_bytes.as_deref(),
+        out.iptc_digest.as_deref(),
+    );
+    out.warnings.extend(mwg_warns);
+    if !mwg_sec.is_empty() {
+        out.sections.push(mwg_sec);
+    }
     out
 }
 
@@ -213,10 +229,16 @@ fn parse_app13(payload: &[u8], payload_offset: u64, out: &mut JpegParse) {
     } else {
         payload
     };
-    let (secs, warns) =
+    let parsed =
         iptc::parse_photoshop_irb(rest, payload_offset + (payload.len() - rest.len()) as u64);
-    out.sections.extend(secs);
-    out.warnings.extend(warns);
+    out.sections.extend(parsed.sections);
+    out.warnings.extend(parsed.warnings);
+    if parsed.iptc_bytes.is_some() {
+        out.iptc_bytes = parsed.iptc_bytes;
+    }
+    if parsed.iptc_digest.is_some() {
+        out.iptc_digest = parsed.iptc_digest;
+    }
 }
 
 fn parse_jfif(payload: &[u8], out: &mut JpegParse) {
