@@ -2,6 +2,23 @@ use crate::types::Magic;
 
 pub fn inspect_magic(data: &[u8]) -> Magic {
     let hex_signature = hex_preview(data, 16);
+    // Prefer our MSG / WARC classifiers over generic infer (OLE storage / octet-stream).
+    if looks_like_warc(data) {
+        return Magic {
+            mime: "application/warc".into(),
+            extension: Some("warc".into()),
+            description: "WARC (ISO 28500)".into(),
+            hex_signature,
+        };
+    }
+    if crate::parsers::msg::looks_like_msg(data) {
+        return Magic {
+            mime: "application/vnd.ms-outlook".into(),
+            extension: Some("msg".into()),
+            description: "Outlook MSG (OLE/MAPI)".into(),
+            hex_signature,
+        };
+    }
     if let Some(kind) = infer::get(data) {
         return Magic {
             mime: kind.mime_type().to_string(),
@@ -56,10 +73,16 @@ fn fallback_magic(data: &[u8]) -> (&'static str, &'static str) {
         return ("video/x-matroska", "EBML / Matroska / WebM");
     }
     if data.starts_with(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]) {
+        if crate::parsers::msg::looks_like_msg(data) {
+            return ("application/vnd.ms-outlook", "Outlook MSG (OLE/MAPI)");
+        }
         return (
             "application/vnd.ms-office",
             "OLE Compound File (legacy Office)",
         );
+    }
+    if looks_like_warc(data) {
+        return ("application/warc", "WARC (ISO 28500)");
     }
     if data.starts_with(b"%PDF-") {
         return ("application/pdf", "PDF");
@@ -196,6 +219,11 @@ fn looks_like_eml(data: &[u8]) -> bool {
         && (s.contains("Subject:") || s.contains("To:") || s.contains("MIME-Version:"))
 }
 
+fn looks_like_warc(data: &[u8]) -> bool {
+    let head = &data[..data.len().min(16)];
+    head.starts_with(b"WARC/1.") || head.starts_with(b"WARC/0.")
+}
+
 fn looks_like_pe(data: &[u8]) -> bool {
     if data.len() < 0x40 || !data.starts_with(b"MZ") {
         return false;
@@ -261,6 +289,8 @@ pub fn extension_for_mime(mime: &str) -> Option<&'static str> {
         "text/html" => "html",
         "application/json" => "json",
         "message/rfc822" => "eml",
+        "application/vnd.ms-outlook" | "application/x-msg" => "msg",
+        "application/warc" | "application/x-warc" => "warc",
         "font/ttf" => "ttf",
         "application/vnd.microsoft.portable-executable" | "application/x-dosexec" => "exe",
         "application/x-elf" => "elf",
@@ -312,6 +342,8 @@ pub fn mime_from_filename(name: &str) -> Option<&'static str> {
         "otf" => "font/otf",
         "woff" => "font/woff",
         "eml" => "message/rfc822",
+        "msg" => "application/vnd.ms-outlook",
+        "warc" => "application/warc",
         "exe" | "dll" | "sys" | "scr" => "application/vnd.microsoft.portable-executable",
         "elf" | "so" | "o" => "application/x-elf",
         "dylib" | "macho" | "bundle" => "application/x-mach-binary",

@@ -29,13 +29,16 @@ pub fn parse_office_at_depth(
         return parse_rtf(data);
     }
     if data.starts_with(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]) {
+        if crate::parsers::msg::looks_like_msg(data) {
+            return crate::parsers::msg::parse_msg(data);
+        }
         let mut s = Section::new("ole", "OLE Compound File");
         s.add("Signature", "D0 CF 11 E0 A1 B1 1A E1", Some("OLE"));
         s.add("Size", data.len().to_string(), Some("OLE"));
         s.add("EmbedDepth", depth.to_string(), Some("OLE"));
         return (
             vec![s],
-            vec!["Legacy Office (.doc/.xls/.ppt) OLE/CFBF is detected but not parsed. Export to OOXML or use MetaTrace + ExifTool.".into()],
+            vec!["Legacy Office (.doc/.xls/.ppt) OLE/CFBF is detected but not parsed. Outlook .msg is handled separately. Export Office to OOXML or use MetaTrace + ExifTool.".into()],
         );
     }
     parse_zip_xml_package_at_depth(data, depth, max_depth)

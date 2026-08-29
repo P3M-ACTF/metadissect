@@ -8,12 +8,15 @@ pub mod image;
 pub mod iptc;
 pub mod jpeg;
 pub mod macho;
+pub mod makernote;
+pub mod msg;
 pub mod office;
 pub mod pdf;
 pub mod pe;
 pub mod png;
 pub mod tiff;
 pub mod video;
+pub mod warc;
 mod xml_util;
 pub mod xmp;
 
@@ -99,6 +102,25 @@ fn is_macho_mime(mime: &str) -> bool {
         || mime.contains("mach-o")
 }
 
+fn is_msg_mime(mime: &str) -> bool {
+    matches!(
+        mime,
+        "application/vnd.ms-outlook" | "application/x-msg" | "application/msg"
+    ) || mime.contains("ms-outlook")
+}
+
+fn is_warc_mime(mime: &str) -> bool {
+    matches!(
+        mime,
+        "application/warc" | "application/x-warc" | "application/warc-fields"
+    ) || mime.contains("warc")
+}
+
+fn looks_like_warc(data: &[u8]) -> bool {
+    let head = &data[..data.len().min(16)];
+    head.starts_with(b"WARC/1.") || head.starts_with(b"WARC/0.")
+}
+
 fn looks_like_pe(data: &[u8]) -> bool {
     data.len() >= 64 && data.starts_with(b"MZ")
 }
@@ -149,6 +171,12 @@ fn dispatch(data: &[u8], mime: &str, depth: u8, max_depth: u8) -> (Vec<Section>,
     if mime == "message/rfc822" {
         return eml::parse_eml(data);
     }
+    if is_msg_mime(mime) || (is_unknown_mime(mime) && msg::looks_like_msg(data)) {
+        return msg::parse_msg(data);
+    }
+    if is_warc_mime(mime) || looks_like_warc(data) {
+        return warc::parse_warc(data);
+    }
     if is_pe_mime(mime) || (is_unknown_mime(mime) && looks_like_pe(data)) {
         return pe::parse_pe(data);
     }
@@ -166,7 +194,13 @@ fn dispatch(data: &[u8], mime: &str, depth: u8, max_depth: u8) -> (Vec<Section>,
         return office::parse_zip_xml_package_at_depth(data, depth, max_depth);
     }
     if data.starts_with(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]) {
+        if msg::looks_like_msg(data) {
+            return msg::parse_msg(data);
+        }
         return office::parse_office_at_depth(data, "application/vnd.ms-office", depth, max_depth);
+    }
+    if looks_like_warc(data) {
+        return warc::parse_warc(data);
     }
     // Executables again after other weak checks (MZ can be mislabeled)
     if looks_like_pe(data) {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- **WARC (ISO 28500):** parse `warcinfo` / `request` / `response` / `metadata` records; surface WARC-Target-URI, WARC-Date, WARC-IP-Address, payload/block digests, and selected HTTP headers; graceful warnings on truncated files.
+- **MSG/MAPI:** Outlook `.msg` via OLE CFBF (`cfb`); Subject, From, To, Cc, dates, Message-ID, attachment names when present. Honest warning that the full MAPI property set is not decoded. PST remains out of scope.
+- **MakerNotes:** EXIF `0x927C` no longer opaque-only — vendor detect (Canon/Nikon/Sony/Apple) plus a pragmatic IFD subset when headers/offsets allow; otherwise length/offset/vendor with clear “not fully decoded” notes (not ExifTool parity).
+- Fixtures: `sample.warc`, `sample.msg` (`cargo run -p metadissect --example write_phase5_fixtures`).
+
 ## 0.6.0
 
 - **Executables (Phase 4):** PE, ELF, and Mach-O metadata via `goblin`.

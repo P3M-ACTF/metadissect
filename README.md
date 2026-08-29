@@ -1,10 +1,10 @@
 # MetaDissect
 
-Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.6.0). Binario: `metadissect`.
+Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.7.0). Binario: `metadissect`.
 
 ## Qué es / qué no es
 
-**Es:** librería + CLI. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML, HTML/JSON, C2PA/JUMBF, PE/ELF/Mach-O, etc.). Comandos: `analyze`, `fetch`, `html`, `json`. Formatos: `table`, `json`, `markdown`, `csv`.
+**Es:** librería + CLI. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML/MSG, WARC, HTML/JSON, C2PA/JUMBF, PE/ELF/Mach-O, MakerNotes parciales, etc.). Comandos: `analyze`, `fetch`, `html`, `json`. Formatos: `table`, `json`, `markdown`, `csv`.
 
 **No es:** interfaz web, servidor (`serve`), crawler ni FOCA. Sin UI. No descarga manifiestos C2PA remotos ni incluye la lista de confianza C2PA oficial (firma válida ≠ `Trusted`). No valida cadenas Authenticode (solo lista certificados).
 
@@ -64,11 +64,11 @@ El análisis es local. Una URL solo se descarga si usas `fetch`. No se envían a
 
 ## English
 
-**MetaDissect** is a Rust **library + CLI** (v0.6.0) for exhaustive local metadata analysis. Binary: `metadissect`.
+**MetaDissect** is a Rust **library + CLI** (v0.7.0) for exhaustive local metadata analysis. Binary: `metadissect`.
 
 ### What it is / is not
 
-**Is:** library and CLI. Commands: `analyze`, `fetch`, `html`, `json`. Output: `table`, `json`, `markdown`, `csv`. Includes C2PA/JUMBF when present (feature `c2pa`, default) and PE/ELF/Mach-O executable metadata.
+**Is:** library and CLI. Commands: `analyze`, `fetch`, `html`, `json`. Output: `table`, `json`, `markdown`, `csv`. Includes C2PA/JUMBF (feature `c2pa`, default), PE/ELF/Mach-O, WARC, Outlook MSG (subset), and pragmatic MakerNote vendor/subset decode.
 
 **Is not:** a web UI, `serve` endpoint, crawler, or FOCA-like tool. Does not fetch remote C2PA manifests or ship the official C2PA trust list. Authenticode is listed, not chain-validated.
 

@@ -1,3 +1,4 @@
+use crate::parsers::makernote;
 use crate::types::{Field, Section};
 
 const TYPE_BYTE: u16 = 1;
@@ -81,6 +82,7 @@ pub fn parse_tiff(data: &[u8], base_offset: u64) -> ParsedTiff {
             .push(format!("Unexpected TIFF magic {magic} (expected 42)"));
     }
     let ifd0 = en.u32(&data[4..8]).unwrap_or(0) as usize;
+    let mut make: Option<String> = None;
     walk_ifd(
         data,
         en,
@@ -91,6 +93,7 @@ pub fn parse_tiff(data: &[u8], base_offset: u64) -> ParsedTiff {
         0,
         &mut out,
         &mut Vec::new(),
+        &mut make,
     );
     out
 }
@@ -106,6 +109,7 @@ fn walk_ifd(
     depth: u8,
     out: &mut ParsedTiff,
     seen: &mut Vec<usize>,
+    make: &mut Option<String>,
 ) {
     if depth > 6 || seen.contains(&offset) {
         return;
@@ -161,6 +165,40 @@ fn walk_ifd(
             }
         }
 
+        // Capture Make for MakerNote vendor detection (usually IFD0 before ExifIFD)
+        if tag == 0x010F && typ == TYPE_ASCII {
+            let m = format_value(tag, typ, cnt, val_bytes, en);
+            if !m.is_empty() {
+                *make = Some(m);
+            }
+        }
+
+        if tag == TAG_MAKER_NOTE {
+            let summary = format!(
+                "{} bytes @ {} ({})",
+                val_bytes.len(),
+                val_off,
+                makernote::detect_vendor(val_bytes, make.as_deref()).as_str()
+            );
+            let raw = serde_json::json!({
+                "tag": tag,
+                "type": typ,
+                "count": cnt,
+                "value_offset": val_off,
+            });
+            section.fields.push(
+                Field::new("MakerNote", summary)
+                    .with_namespace(ns)
+                    .with_raw(raw)
+                    .with_span(base_offset + eoff as u64, 12)
+                    .with_explanation("See makernote section for vendor / subset decode"),
+            );
+            let mn = makernote::analyze(val_bytes, base_offset + val_off as u64, make.as_deref());
+            out.sections.push(mn.section);
+            out.warnings.extend(mn.warnings);
+            continue;
+        }
+
         let display = format_value(tag, typ, cnt, val_bytes, en);
         let raw = serde_json::json!({
             "tag": tag,
@@ -199,6 +237,7 @@ fn walk_ifd(
             depth + 1,
             out,
             seen,
+            make,
         );
     }
 
@@ -215,12 +254,11 @@ fn walk_ifd(
                     depth + 1,
                     out,
                     seen,
+                    make,
                 );
             }
         }
     }
-
-    let _ = TAG_MAKER_NOTE;
 }
 
 fn pointer_value(en: Endian, typ: u16, inline: &[u8], val_bytes: &[u8]) -> Option<usize> {
