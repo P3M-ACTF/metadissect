@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+
+- **crates.io readiness:** library crate metadata (description, license, repository, homepage, keywords, categories, readme, docs.rs); expanded rustdoc on the crate root.
+- **JSON HTTP API (no UI):** `metadissect serve --api` (default `127.0.0.1:8787`). Endpoints: `GET /api/health`, `POST /api/analyze` (multipart), `POST /api/analyze-text`, `POST /api/fetch` (SSRF-safe). Warns when binding `0.0.0.0` / `::`. Axum lives in `metadissect-cli` only.
+- Documented install via `cargo add metadissect` / `cargo publish` one-liner for maintainers.
+
 ## 0.7.0
 
 - **WARC (ISO 28500):** parse `warcinfo` / `request` / `response` / `metadata` records; surface WARC-Target-URI, WARC-Date, WARC-IP-Address, payload/block digests, and selected HTTP headers; graceful warnings on truncated files.

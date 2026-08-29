@@ -1,12 +1,24 @@
-[package]
+﻿[package]
 name = "metadissect"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 rust-version.workspace = true
-description = "Exhaustive metadata parsers, hashes and MIME detection."
+readme = "../../README.md"
+description = "Exhaustive local metadata extraction: parsers, hashes, MIME magic, and SSRF-safe fetch."
+documentation = "https://docs.rs/metadissect"
+keywords = ["metadata", "exif", "forensics", "parser", "c2pa"]
+categories = ["parser-implementations", "encoding"]
+exclude = [
+    "/examples/",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["c2pa"]

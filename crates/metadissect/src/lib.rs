@@ -1,8 +1,26 @@
 //! Exhaustive local metadata extraction: parsers, hashes, MIME magic, and SSRF-safe fetch.
 //!
+//! # Quick start
+//!
+//! ```no_run
+//! use std::path::Path;
+//! use metadissect::{analyze_path, analyze_buffer, AnalyzeOptions};
+//!
+//! let analysis = analyze_path(Path::new("photo.jpg"))?;
+//! println!("{} fields", analysis.field_count());
+//!
+//! let bytes = std::fs::read("photo.jpg")?;
+//! let analysis = analyze_buffer(&bytes, AnalyzeOptions::from_filename("photo.jpg"));
+//! # Ok::<(), metadissect::MetaError>(())
+//! ```
+//!
 //! Main entry points: [`analyze_buffer`], [`analyze_path`], [`analyze_path_with_bytes`],
-//! [`analyze_html_string`], and [`analyze_json_string`]. Educational narrative lives in
-//! MetaInstructor (`meta-explain`); this crate keeps technical `warnings` only.
+//! [`analyze_html_string`], and [`analyze_json_string`]. For remote URLs use
+//! [`fetch::fetch_and_analyze`] (SSRF-safe). Serialize results with [`export`].
+//!
+//! Educational narrative lives in MetaInstructor (`meta-explain`); this crate keeps
+//! technical `warnings` only. The JSON HTTP API is served by the `metadissect` CLI
+//! (`metadissect serve --api`), not by this library.
 
 pub mod analyze;
 #[cfg(feature = "c2pa")]
@@ -12,6 +30,7 @@ pub mod entropy;
 pub mod error;
 pub mod export;
 pub mod fetch;
+#[doc(hidden)]
 pub mod fixture_jpeg;
 pub mod hashes;
 pub mod magic;

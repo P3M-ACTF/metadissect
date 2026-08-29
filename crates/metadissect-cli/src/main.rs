@@ -1,3 +1,5 @@
+mod api;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use metadissect::export::{to_csv, to_json, to_markdown};
@@ -8,7 +10,7 @@ use std::path::{Path, PathBuf};
 #[command(
     name = "metadissect",
     version,
-    about = "Exhaustive local metadata analysis (library + CLI, no web UI)."
+    about = "Exhaustive local metadata analysis (library + CLI + JSON API, no web UI)."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -46,6 +48,18 @@ enum Command {
         url: String,
         #[arg(long, short = 'f', default_value = "table")]
         format: OutputFormat,
+    },
+    /// JSON HTTP API only (no web UI). Requires `--api`.
+    Serve {
+        /// Enable the JSON API (MetaDissect has no educational UI)
+        #[arg(long)]
+        api: bool,
+        /// Bind address (default localhost; warn if 0.0.0.0)
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        /// Listen port
+        #[arg(long, default_value = "8787")]
+        port: u16,
     },
 }
 
@@ -88,9 +102,23 @@ async fn main() -> Result<()> {
             let a = metadissect::fetch::fetch_and_analyze(&url).await?;
             print_analysis(&a, format)?;
         }
+        Some(Command::Serve {
+            api: enable_api,
+            host,
+            port,
+        }) => {
+            if !enable_api {
+                anyhow::bail!(
+                    "MetaDissect has no web UI. Pass --api to serve the JSON HTTP API, e.g.:\n  metadissect serve --api\n  metadissect serve --api --host 127.0.0.1 --port 8787"
+                );
+            }
+            api::serve(&host, port).await?;
+        }
         None => {
             let path = cli.path.ok_or_else(|| {
-                anyhow::anyhow!("pass a file path or a subcommand (analyze, fetch, html, json)")
+                anyhow::anyhow!(
+                    "pass a file path or a subcommand (analyze, fetch, html, json, serve)"
+                )
             })?;
             print_analysis_path(&path, cli.format)?;
         }

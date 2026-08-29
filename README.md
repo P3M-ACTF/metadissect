@@ -1,23 +1,29 @@
 # MetaDissect
 
-Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.7.0). Binario: `metadissect`.
+Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.8.0). Binario: `metadissect`.
 
 ## Qué es / qué no es
 
-**Es:** librería + CLI. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML/MSG, WARC, HTML/JSON, C2PA/JUMBF, PE/ELF/Mach-O, MakerNotes parciales, etc.). Comandos: `analyze`, `fetch`, `html`, `json`. Formatos: `table`, `json`, `markdown`, `csv`.
+**Es:** librería + CLI + API HTTP JSON opcional. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML/MSG, WARC, HTML/JSON, C2PA/JUMBF, PE/ELF/Mach-O, MakerNotes parciales, etc.). Comandos: `analyze`, `fetch`, `html`, `json`, `serve --api`. Formatos: `table`, `json`, `markdown`, `csv`.
 
-**No es:** interfaz web, servidor (`serve`), crawler ni FOCA. Sin UI. No descarga manifiestos C2PA remotos ni incluye la lista de confianza C2PA oficial (firma válida ≠ `Trusted`). No valida cadenas Authenticode (solo lista certificados).
+**No es:** interfaz web educativa (eso es MetaInstructor), crawler ni FOCA. Sin UI. No descarga manifiestos C2PA remotos ni incluye la lista de confianza C2PA oficial (firma válida ≠ `Trusted`). No valida cadenas Authenticode (solo lista certificados).
 
 ## Familia MetaDissect
 
 | Proyecto | Acceso | Rol |
 |----------|--------|-----|
-| **MetaDissect** | [público](https://github.com/P3M-ACTF/metadissect) | Lib + CLI, sin UI |
+| **MetaDissect** | [público](https://github.com/P3M-ACTF/metadissect) | Lib + CLI + API JSON, sin UI |
 | **MetaInstructor** | [público](https://github.com/P3M-ACTF/metainstructor) | Web educativa |
 | **MetaTrace** | Privado — Hellcode Collective | Herramienta IR / forense |
 | **MetaFake** | Privado — Hellcode Collective | Mutación de metadatos (copias) |
 
 ## Instalación
+
+**Como dependencia (crates.io):**
+
+```bash
+cargo add metadissect
+```
 
 **Releases:** descarga el binario de [Releases](https://github.com/P3M-ACTF/metadissect/releases) para tu SO.
 
@@ -45,16 +51,50 @@ metadissect html --file page.html -f csv
 metadissect json --file data.json
 ```
 
+## API HTTP JSON (sin UI)
+
+Por defecto solo escucha en localhost. Aviso si usas `0.0.0.0` / `::` (sin autenticación).
+
+```bash
+metadissect serve --api
+# http://127.0.0.1:8787
+metadissect serve --api --host 127.0.0.1 --port 8787
+```
+
+| Método | Ruta | Cuerpo |
+|--------|------|--------|
+| `GET` | `/api/health` | — |
+| `POST` | `/api/analyze` | `multipart` con archivo |
+| `POST` | `/api/analyze-text` | JSON `{ "text", "kind": "html\|json", "filename"? }` |
+| `POST` | `/api/fetch` | JSON `{ "url" }` (misma política anti-SSRF que `fetch`) |
+
+```bash
+curl -s http://127.0.0.1:8787/api/health
+curl -s -F "file=@foto.jpg" http://127.0.0.1:8787/api/analyze
+```
+
+## Librería
+
+```rust
+use std::path::Path;
+use metadissect::analyze_path;
+
+let analysis = analyze_path(Path::new("photo.jpg"))?;
+println!("{} — {} fields", analysis.mime, analysis.field_count());
+```
+
+Docs: [docs.rs/metadissect](https://docs.rs/metadissect).
+
 ## Privacidad
 
-El análisis es local. Una URL solo se descarga si usas `fetch`. No se envían archivos a terceros.
+El análisis es local. Una URL solo se descarga si usas `fetch` o `POST /api/fetch`. No se envían archivos a terceros.
 
 ## Estructura de crates
 
 | Crate | Rol |
 |-------|-----|
-| `metadissect` | Librería de análisis |
-| `metadissect-cli` | Binario `metadissect` |
+| `metadissect` | Librería de análisis (publicable en crates.io) |
+| `metadissect-cli` | Binario `metadissect` (CLI + `serve --api`) |
 
 ## Licencia
 
@@ -64,46 +104,46 @@ El análisis es local. Una URL solo se descarga si usas `fetch`. No se envían a
 
 ## English
 
-**MetaDissect** is a Rust **library + CLI** (v0.7.0) for exhaustive local metadata analysis. Binary: `metadissect`.
+**MetaDissect** is a Rust **library + CLI + optional JSON HTTP API** (v0.8.0) for exhaustive local metadata analysis. Binary: `metadissect`.
 
 ### What it is / is not
 
-**Is:** library and CLI. Commands: `analyze`, `fetch`, `html`, `json`. Output: `table`, `json`, `markdown`, `csv`. Includes C2PA/JUMBF (feature `c2pa`, default), PE/ELF/Mach-O, WARC, Outlook MSG (subset), and pragmatic MakerNote vendor/subset decode.
+**Is:** library, CLI, and thin JSON API (`serve --api`). Commands: `analyze`, `fetch`, `html`, `json`, `serve`. Output: `table`, `json`, `markdown`, `csv`. Includes C2PA/JUMBF (feature `c2pa`, default), PE/ELF/Mach-O, WARC, Outlook MSG (subset), and pragmatic MakerNote vendor/subset decode.
 
-**Is not:** a web UI, `serve` endpoint, crawler, or FOCA-like tool. Does not fetch remote C2PA manifests or ship the official C2PA trust list. Authenticode is listed, not chain-validated.
+**Is not:** an educational web UI (see MetaInstructor), crawler, or FOCA-like tool. Does not fetch remote C2PA manifests or ship the official C2PA trust list. Authenticode is listed, not chain-validated.
 
 ### Family
 
 | Project | Access | Role |
 |---------|--------|------|
-| **MetaDissect** | [public](https://github.com/P3M-ACTF/metadissect) | Lib + CLI, no UI |
+| **MetaDissect** | [public](https://github.com/P3M-ACTF/metadissect) | Lib + CLI + JSON API, no UI |
 | **MetaInstructor** | [public](https://github.com/P3M-ACTF/metainstructor) | Educational web |
 | **MetaTrace** | Private — Hellcode Collective | IR / forensic tool |
 | **MetaFake** | Private — Hellcode Collective | Metadata mutation (copies) |
 
 ### Install
 
-From [Releases](https://github.com/P3M-ACTF/metadissect/releases), or:
-
 ```bash
-cargo build --release -p metadissect-cli
+cargo add metadissect
 ```
 
-### CLI examples
+From [Releases](https://github.com/P3M-ACTF/metadissect/releases), or `cargo build --release -p metadissect-cli`.
+
+### CLI / API
 
 ```bash
 metadissect foto.jpg
 metadissect analyze documento.pdf -f json
-metadissect fetch https://example.com/page.html -f markdown
+metadissect serve --api   # http://127.0.0.1:8787
 ```
 
 ### Privacy
 
-Analysis is local. URLs are fetched only via `fetch`.
+Analysis is local. URLs are fetched only via `fetch` / `POST /api/fetch`.
 
 ### Crates
 
-`metadissect` (library), `metadissect-cli` (binary).
+`metadissect` (library, crates.io), `metadissect-cli` (binary; not published).
 
 ### License
 

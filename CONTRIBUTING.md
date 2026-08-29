@@ -19,14 +19,30 @@ cargo test --workspace
 
 **MSRV:** Rust **1.89**.
 
+CI de PRs = **Linux debug** only (fmt + clippy + test). Windows/macOS: en tu máquina o `workflow_dispatch`. No hace `cargo build --release` en cada push.
+
 ## Pull requests
 
 - Open PRs against **`main`**.
-- CI runs **Linux debug** only. Windows/macOS: test locally or via `workflow_dispatch` if available.
 - Do **not** commit `evidence/`, `.env`, secrets, or real case files.
 
-## Releasing / tag pin for consumers
+## HTTP API
+
+El binario sirve solo JSON (`metadissect serve --api`). No hay UI educativa aquí. Por defecto `127.0.0.1:8787`; no enlaces `0.0.0.0` en demos públicas sin auth.
+
+## Releasing / crates.io / tag pin for consumers
 
 1. Bump workspace `version`, update `CHANGELOG.md`.
-2. Tag `vX.Y.Z` and publish [Releases](https://github.com/P3M-ACTF/metadissect/releases).
-3. Downstream repos update `metadissect = { git = "...", tag = "vX.Y.Z" }` (keep local `[patch]` for umbrella work).
+2. Verify package: `cargo publish -p metadissect --dry-run`
+3. Publish library (needs [crates.io](https://crates.io) token):
+
+```powershell
+# One-time: https://crates.io/me → New Token → then:
+cargo login
+cargo publish -p metadissect
+```
+
+4. Tag `vX.Y.Z` and publish [Releases](https://github.com/P3M-ACTF/metadissect/releases) (CLI binaries).
+5. Downstream repos update `metadissect = { git = "...", tag = "vX.Y.Z" }` (and CI `ref:`) — keep local `[patch]` for umbrella work.
+
+`metadissect-cli` has `publish = false` (binario vía GitHub Releases, no crates.io).
