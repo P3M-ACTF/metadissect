@@ -1,4 +1,4 @@
-﻿# Fixtures
+# Fixtures
 
 | File | Source |
 |------|--------|

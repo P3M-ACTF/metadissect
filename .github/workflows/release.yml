@@ -10,6 +10,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     strategy:
@@ -19,43 +23,13 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             bin: metadissect.exe
-            archive: zip
-            full_only: false
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             bin: metadissect
-            archive: tar
-            full_only: false
           - os: macos-latest
             target: aarch64-apple-darwin
             bin: metadissect
-            archive: tar
-            full_only: false
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            bin: metadissect
-            archive: tar
-            cross: true
-            full_only: true
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            bin: metadissect
-            archive: tar
-            cross: true
-            full_only: true
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            bin: metadissect
-            archive: tar
-            full_only: true
-          - os: ubuntu-latest
-            target: aarch64-linux-android
-            bin: metadissect
-            archive: tar
-            android: true
-            full_only: true
     runs-on: ${{ matrix.os }}
-    if: ${{ !matrix.full_only || (github.event_name == 'workflow_dispatch' && inputs.full) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
@@ -65,6 +39,63 @@ jobs:
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: ${{ matrix.target }}
+      - name: Native build
+        run: cargo build --release --target ${{ matrix.target }} --bin metadissect
+      - name: Pack (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $out = "metadissect-${{ matrix.target }}"
+          New-Item -ItemType Directory $out | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.bin }}" $out/
+          Copy-Item README.md $out/
+          Compress-Archive -Path $out -DestinationPath "$out.zip"
+      - name: Pack (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          out="metadissect-${{ matrix.target }}"
+          mkdir -p "$out"
+          cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$out/"
+          cp README.md "$out/"
+          tar -czf "$out.tar.gz" "$out"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: metadissect-${{ matrix.target }}
+          path: |
+            metadissect-*.zip
+            metadissect-*.tar.gz
+
+  build-full:
+    if: github.event_name == 'workflow_dispatch' && inputs.full
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            bin: metadissect
+            cross: true
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            bin: metadissect
+            cross: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            bin: metadissect
+          - os: ubuntu-latest
+            target: aarch64-linux-android
+            bin: metadissect
+            android: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: full-${{ matrix.target }}
       - name: Native build
         if: ${{ !matrix.cross && !matrix.android }}
         run: cargo build --release --target ${{ matrix.target }} --bin metadissect
@@ -96,17 +127,7 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CC_aarch64_linux_android"
           rustup target add aarch64-linux-android
           cargo build --release --target aarch64-linux-android --bin metadissect
-      - name: Pack (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $out = "metadissect-${{ matrix.target }}"
-          New-Item -ItemType Directory $out | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.bin }}" $out/
-          Copy-Item README.md $out/
-          Compress-Archive -Path $out -DestinationPath "$out.zip"
       - name: Pack (Unix)
-        if: runner.os != 'Windows'
         run: |
           out="metadissect-${{ matrix.target }}"
           mkdir -p "$out"
@@ -117,12 +138,15 @@ jobs:
         with:
           name: metadissect-${{ matrix.target }}
           path: |
-            metadissect-*.zip
             metadissect-*.tar.gz
 
   publish:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build, build-full]
+    if: |
+      always() &&
+      startsWith(github.ref, 'refs/tags/') &&
+      needs.build.result == 'success' &&
+      (needs.build-full.result == 'success' || needs.build-full.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -388,8 +388,10 @@ fn read_asn1_string(bytes: &[u8]) -> Option<String> {
     let raw = &bytes[start..start + len];
     let s = if tag == 0x1E {
         let u16s: Vec<u16> = raw
-            .chunks_exact(2)
-            .map(|c| u16::from_be_bytes([c[0], c[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| u16::from_be_bytes(*c))
             .collect();
         String::from_utf16_lossy(&u16s)
     } else {

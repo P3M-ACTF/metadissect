@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "metadissect-cli"
 version.workspace = true
 edition.workspace = true

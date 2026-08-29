@@ -290,8 +290,8 @@ fn decode_property(prop_id: u16, prop_type: u16, bytes: &[u8]) -> Option<String>
 
 fn decode_utf16le(bytes: &[u8]) -> String {
     let mut u16s = Vec::with_capacity(bytes.len() / 2);
-    for chunk in bytes.chunks_exact(2) {
-        let v = u16::from_le_bytes([chunk[0], chunk[1]]);
+    for chunk in bytes.as_chunks::<2>().0 {
+        let v = u16::from_le_bytes(*chunk);
         if v == 0 {
             break;
         }
