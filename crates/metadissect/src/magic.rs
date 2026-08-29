@@ -94,6 +94,18 @@ fn fallback_magic(data: &[u8]) -> (&'static str, &'static str) {
     if looks_like_eml(data) {
         return ("message/rfc822", "Email / EML");
     }
+    if looks_like_pe(data) {
+        return (
+            "application/vnd.microsoft.portable-executable",
+            "PE / MZ executable",
+        );
+    }
+    if data.starts_with(b"\x7fELF") {
+        return ("application/x-elf", "ELF executable");
+    }
+    if looks_like_macho(data) {
+        return ("application/x-mach-binary", "Mach-O binary");
+    }
     if looks_like_html(data) {
         return ("text/html", "HTML");
     }
@@ -184,6 +196,29 @@ fn looks_like_eml(data: &[u8]) -> bool {
         && (s.contains("Subject:") || s.contains("To:") || s.contains("MIME-Version:"))
 }
 
+fn looks_like_pe(data: &[u8]) -> bool {
+    if data.len() < 0x40 || !data.starts_with(b"MZ") {
+        return false;
+    }
+    let pe_off = u32::from_le_bytes([data[0x3C], data[0x3D], data[0x3E], data[0x3F]]) as usize;
+    pe_off
+        .checked_add(4)
+        .filter(|&end| end <= data.len())
+        .is_some_and(|end| &data[pe_off..end] == b"PE\0\0")
+}
+
+fn looks_like_macho(data: &[u8]) -> bool {
+    if data.len() < 4 {
+        return false;
+    }
+    let le = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+    let be = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
+    matches!(
+        le,
+        0xFEEDFACE | 0xFEEDFACF | 0xCEFAEDFE | 0xCFFAEDFE
+    ) || matches!(be, 0xCAFEBABE | 0xBEBAFECA)
+}
+
 fn is_mostly_text(data: &[u8]) -> bool {
     if data.is_empty() {
         return true;
@@ -227,6 +262,9 @@ pub fn extension_for_mime(mime: &str) -> Option<&'static str> {
         "application/json" => "json",
         "message/rfc822" => "eml",
         "font/ttf" => "ttf",
+        "application/vnd.microsoft.portable-executable" | "application/x-dosexec" => "exe",
+        "application/x-elf" => "elf",
+        "application/x-mach-binary" => "macho",
         _ => return None,
     })
 }
@@ -274,6 +312,9 @@ pub fn mime_from_filename(name: &str) -> Option<&'static str> {
         "otf" => "font/otf",
         "woff" => "font/woff",
         "eml" => "message/rfc822",
+        "exe" | "dll" | "sys" | "scr" => "application/vnd.microsoft.portable-executable",
+        "elf" | "so" | "o" => "application/x-elf",
+        "dylib" | "macho" | "bundle" => "application/x-mach-binary",
         _ => return None,
     })
 }

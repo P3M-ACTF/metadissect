@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- **Executables (Phase 4):** PE, ELF, and Mach-O metadata via `goblin`.
+- **PE:** VS_VERSIONINFO (CompanyName, ProductName, FileVersion, OriginalFilename, …), Rich Header (XOR-decoded tool telemetry with known CompID labels), sections (virtual vs raw sizes + packer hints), import table / IAT summary, Authenticode certificate table (type, blob hashes, best-effort Subject CN / leaf thumbprint — no chain validation).
+- **ELF:** headers, program/section headers, `NT_GNU_BUILD_ID` and other notes when present.
+- **Mach-O:** headers, segments/sections, UUID / build-version / version-min when present (including fat binaries).
+- Magic sniffing + `parse_for_mime` dispatch for PE/ELF/Mach-O; fixtures `minimal.exe` / `minimal.elf`.
+
 ## 0.5.0
 
 - **C2PA / JUMBF:** detect and parse embedded manifests (JPEG/PNG/ISO-BMFF and other formats supported by the CAI `c2pa` crate) via feature `c2pa` (default on; `rust_native_crypto`, no OpenSSL, no remote manifest fetch).

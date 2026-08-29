@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod elf;
 pub mod eml;
 pub mod font;
 pub mod generic;
@@ -6,8 +7,10 @@ pub mod html;
 pub mod image;
 pub mod iptc;
 pub mod jpeg;
+pub mod macho;
 pub mod office;
 pub mod pdf;
+pub mod pe;
 pub mod png;
 pub mod tiff;
 pub mod video;
@@ -65,6 +68,56 @@ pub fn is_unknown_mime(mime: &str) -> bool {
         || mime == "binary/octet-stream"
 }
 
+fn is_pe_mime(mime: &str) -> bool {
+    matches!(
+        mime,
+        "application/vnd.microsoft.portable-executable"
+            | "application/x-dosexec"
+            | "application/x-msdownload"
+            | "application/x-msdos-program"
+            | "application/exe"
+            | "application/x-exe"
+            | "application/x-winexe"
+    ) || mime.contains("portable-executable")
+}
+
+fn is_elf_mime(mime: &str) -> bool {
+    matches!(
+        mime,
+        "application/x-elf"
+            | "application/x-executable"
+            | "application/x-sharedlib"
+            | "application/x-pie-executable"
+    ) || mime.contains("x-elf")
+}
+
+fn is_macho_mime(mime: &str) -> bool {
+    matches!(
+        mime,
+        "application/x-mach-binary" | "application/x-mach-o" | "application/x-macho"
+    ) || mime.contains("mach-binary")
+        || mime.contains("mach-o")
+}
+
+fn looks_like_pe(data: &[u8]) -> bool {
+    data.len() >= 64 && data.starts_with(b"MZ")
+}
+
+fn looks_like_elf(data: &[u8]) -> bool {
+    data.starts_with(b"\x7fELF")
+}
+
+fn looks_like_macho(data: &[u8]) -> bool {
+    if data.len() < 4 {
+        return false;
+    }
+    let m = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+    matches!(
+        m,
+        0xFEEDFACE | 0xFEEDFACF | 0xCEFAEDFE | 0xCFFAEDFE | 0xCAFEBABE | 0xBEBAFECA
+    )
+}
+
 fn dispatch(data: &[u8], mime: &str, depth: u8, max_depth: u8) -> (Vec<Section>, Vec<String>) {
     if mime.starts_with("image/") {
         return image::parse_image(data, mime);
@@ -96,6 +149,15 @@ fn dispatch(data: &[u8], mime: &str, depth: u8, max_depth: u8) -> (Vec<Section>,
     if mime == "message/rfc822" {
         return eml::parse_eml(data);
     }
+    if is_pe_mime(mime) || (is_unknown_mime(mime) && looks_like_pe(data)) {
+        return pe::parse_pe(data);
+    }
+    if is_elf_mime(mime) || looks_like_elf(data) {
+        return elf::parse_elf(data);
+    }
+    if is_macho_mime(mime) || looks_like_macho(data) {
+        return macho::parse_macho(data);
+    }
     // Weak magic: still sniff container signatures before giving up
     if data.starts_with(b"%PDF-") {
         return pdf::parse_pdf_at_depth(data, depth, max_depth);
@@ -105,6 +167,16 @@ fn dispatch(data: &[u8], mime: &str, depth: u8, max_depth: u8) -> (Vec<Section>,
     }
     if data.starts_with(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]) {
         return office::parse_office_at_depth(data, "application/vnd.ms-office", depth, max_depth);
+    }
+    // Executables again after other weak checks (MZ can be mislabeled)
+    if looks_like_pe(data) {
+        return pe::parse_pe(data);
+    }
+    if looks_like_elf(data) {
+        return elf::parse_elf(data);
+    }
+    if looks_like_macho(data) {
+        return macho::parse_macho(data);
     }
     generic::parse_generic(data)
 }

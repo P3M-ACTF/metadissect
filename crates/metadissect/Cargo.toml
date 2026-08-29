@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "metadissect"
 version.workspace = true
 edition.workspace = true
@@ -22,6 +22,7 @@ c2pa = { version = "0.90", default-features = false, features = ["rust_native_cr
 chrono.workspace = true
 encoding_rs = "0.8"
 flate2 = "1"
+goblin = { version = "0.10", default-features = false, features = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "endian_fd"] }
 hex = "0.4"
 infer = "0.19"
 kamadak-exif = "0.6"

@@ -108,6 +108,9 @@ fn source_rank(ns: Option<&str>) -> i32 {
     if n.contains("pdf") || n.contains("office") || n.contains("odf") {
         return 40;
     }
+    if n.starts_with("pe") || n.starts_with("elf") || n.starts_with("macho") {
+        return 45;
+    }
     30
 }
 
@@ -117,20 +120,21 @@ pub fn map_to_canonical(key: &str) -> Option<&'static str> {
     let lower = k.to_ascii_lowercase().replace(['_', '-', ' '], "");
 
     match lower.as_str() {
-        "creator" | "author" | "byline" | "artist" | "dccreator" | "authors" | "writereditor" => {
-            Some(CANON_CREATOR)
-        }
+        "creator" | "author" | "byline" | "artist" | "dccreator" | "authors" | "writereditor"
+        | "companyname" => Some(CANON_CREATOR),
         "created" | "creationdate" | "createdate" | "datetimeoriginal"
         | "datetime" | "datecreated" | "xmpcreatedate" | "digitalcreationdate"
         | "creatim" => Some(CANON_CREATED),
-        "title" | "objectname" | "headline" | "dctitle" | "tit2" => Some(CANON_TITLE),
+        "title" | "objectname" | "headline" | "dctitle" | "tit2" | "productname"
+        | "filedescription" => Some(CANON_TITLE),
         "software" | "creatortool" | "producer" | "processingsoftware" | "encodingsoftware" => {
             Some(CANON_SOFTWARE)
-        },
-        "copyright" | "copyrightnotice" | "dcrights" | "rights" => Some(CANON_COPYRIGHT),
-        "description" | "captionabstract" | "imagedescription" | "dcdescription" | "comment" => {
-            Some(CANON_DESCRIPTION)
         }
+        "copyright" | "copyrightnotice" | "dcrights" | "rights" | "legalcopyright" => {
+            Some(CANON_COPYRIGHT)
+        }
+        "description" | "captionabstract" | "imagedescription" | "dcdescription" | "comment"
+        | "comments" => Some(CANON_DESCRIPTION),
         "keywords" | "subject" | "dcsubject" | "supplementalcategory" => Some(CANON_KEYWORDS),
         "gps" | "gpsposition" | "location" => Some(CANON_GPS),
         _ => None,
