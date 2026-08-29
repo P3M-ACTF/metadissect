@@ -8,6 +8,14 @@ const MAX_BYTES: u64 = 50 * 1024 * 1024;
 const TIMEOUT_SECS: u64 = 15;
 
 pub async fn fetch_and_analyze(url: &str) -> Result<crate::types::Analysis> {
+    fetch_and_analyze_with(url, AnalyzeOptions::default()).await
+}
+
+/// Like [`fetch_and_analyze`], honoring extra options such as `verbose`.
+pub async fn fetch_and_analyze_with(
+    url: &str,
+    extra: AnalyzeOptions,
+) -> Result<crate::types::Analysis> {
     let parsed = Url::parse(url).map_err(|e| MetaError::Fetch(e.to_string()))?;
     validate_url(&parsed)?;
     resolve_and_reject(&parsed)?;
@@ -94,6 +102,8 @@ pub async fn fetch_and_analyze(url: &str) -> Result<crate::types::Analysis> {
     options.source = Some(Source::Url);
     options.source_url = Some(parsed.to_string());
     options.response_headers = headers;
+    options.verbose = extra.verbose;
+    options.max_embed_depth = extra.max_embed_depth;
     if mime_hint.is_some() {
         options.filename = options.filename.filter(|n| n.contains('.'));
         if options.filename.is_none() {

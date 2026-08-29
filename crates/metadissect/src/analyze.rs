@@ -116,6 +116,11 @@ pub fn analyze_buffer(data: &[u8], options: AnalyzeOptions) -> Analysis {
     let normalized = normalize::build_normalized_section(&analysis.sections);
     analysis.push_section(normalized);
 
+    if !options.verbose {
+        crate::parsers::png::compact_png_chunks_in(&mut analysis.sections);
+    }
+    reorder_c2pa_before_png_chunks(&mut analysis.sections);
+
     if analysis.mime.contains("heic") || analysis.mime.contains("heif") {
         analysis.warnings.push(
             "HEIC/HEIF: without libheif this tool lists ISO-BMFF boxes and extracts embedded EXIF/XMP when present. It does not decode pixels or walk item/iloc trees.".into(),
@@ -125,7 +130,16 @@ pub fn analyze_buffer(data: &[u8], options: AnalyzeOptions) -> Analysis {
 }
 
 pub fn analyze_path(path: &Path) -> crate::error::Result<Analysis> {
-    Ok(analyze_path_with_bytes(path)?.1)
+    analyze_path_with_options(path, AnalyzeOptions::default())
+}
+
+/// Analyze a file, preserving extra options such as [`AnalyzeOptions::verbose`].
+pub fn analyze_path_with_options(
+    path: &Path,
+    extra: AnalyzeOptions,
+) -> crate::error::Result<Analysis> {
+    let data = fs::read(path)?;
+    analyze_path_from_bytes_with(path, &data, extra)
 }
 
 /// Single read: bytes and analysis come from the same buffer (no TOCTOU).
@@ -136,13 +150,24 @@ pub fn analyze_path_with_bytes(path: &Path) -> crate::error::Result<(Vec<u8>, An
 }
 
 pub fn analyze_path_from_bytes(path: &Path, data: &[u8]) -> crate::error::Result<Analysis> {
+    analyze_path_from_bytes_with(path, data, AnalyzeOptions::default())
+}
+
+fn analyze_path_from_bytes_with(
+    path: &Path,
+    data: &[u8],
+    extra: AnalyzeOptions,
+) -> crate::error::Result<Analysis> {
     let meta = fs::metadata(path)?;
-    let mut options = AnalyzeOptions::from_filename(
+    let filename = extra.filename.clone().unwrap_or_else(|| {
         path.file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
-            .to_string(),
-    );
+            .to_string()
+    });
+    let mut options = AnalyzeOptions::from_filename(filename);
+    options.verbose = extra.verbose;
+    options.max_embed_depth = extra.max_embed_depth;
     options.file_size = Some(meta.len());
     if let Ok(mtime) = meta.modified() {
         options.mtime = Some(to_rfc(mtime));
@@ -180,4 +205,32 @@ pub fn analyze_json_string(json: &str, filename: Option<String>) -> Analysis {
 fn to_rfc(t: std::time::SystemTime) -> String {
     let dt: chrono::DateTime<chrono::Utc> = t.into();
     dt.to_rfc3339()
+}
+
+/// When a C2PA manifest is present, show C2PA + `normalized` before `png-chunks`
+/// (and other format-specific sections) so claim generator / actions are visible
+/// without scrolling past IDAT noise.
+fn reorder_c2pa_before_png_chunks(sections: &mut Vec<Section>) {
+    if !sections.iter().any(|s| s.id == "c2pa") {
+        return;
+    }
+    let mut prefix = Vec::new();
+    let mut c2pa = Vec::new();
+    let mut normalized = Vec::new();
+    let mut rest = Vec::new();
+    for s in sections.drain(..) {
+        if s.id == "general" || s.id == "hashes" || s.id == "http-headers" {
+            prefix.push(s);
+        } else if s.id == "normalized" {
+            normalized.push(s);
+        } else if s.id == "c2pa" || s.id.starts_with("c2pa-") {
+            c2pa.push(s);
+        } else {
+            rest.push(s);
+        }
+    }
+    sections.extend(prefix);
+    sections.extend(c2pa);
+    sections.extend(normalized);
+    sections.extend(rest);
 }

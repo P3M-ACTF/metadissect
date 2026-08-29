@@ -14,9 +14,9 @@
 //! # Ok::<(), metadissect::MetaError>(())
 //! ```
 //!
-//! Main entry points: [`analyze_buffer`], [`analyze_path`], [`analyze_path_with_bytes`],
-//! [`analyze_html_string`], and [`analyze_json_string`]. For remote URLs use
-//! [`fetch::fetch_and_analyze`] (SSRF-safe). Serialize results with [`export`].
+//! Main entry points: [`analyze_buffer`], [`analyze_path`], [`analyze_path_with_options`],
+//! [`analyze_path_with_bytes`], [`analyze_html_string`], and [`analyze_json_string`]. For remote
+//! URLs use [`fetch::fetch_and_analyze`] (SSRF-safe). Serialize results with [`export`].
 //!
 //! Educational narrative lives in MetaInstructor (`meta-explain`); this crate keeps
 //! technical `warnings` only. The JSON HTTP API is served by the `metadissect` CLI
@@ -42,6 +42,7 @@ pub mod types;
 
 pub use analyze::{
     analyze_buffer, analyze_html_string, analyze_json_string, analyze_path, analyze_path_with_bytes,
+    analyze_path_with_options,
 };
 pub use error::{MetaError, Result};
 pub use text::truncate_chars;

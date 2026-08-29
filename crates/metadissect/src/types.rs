@@ -199,6 +199,9 @@ pub struct AnalyzeOptions {
     pub response_headers: Vec<(String, String)>,
     /// Max recursion depth for nested embeds (OOXML/PDF). Default: 2.
     pub max_embed_depth: u8,
+    /// When true, PNG `png-chunks` lists every chunk (including each IDAT).
+    /// Default compact mode aggregates IDAT into `IDATCount` / `IDATBytes`.
+    pub verbose: bool,
 }
 
 impl Default for AnalyzeOptions {
@@ -214,6 +217,7 @@ impl Default for AnalyzeOptions {
             source_url: None,
             response_headers: Vec::new(),
             max_embed_depth: crate::embed::DEFAULT_MAX_EMBED_DEPTH,
+            verbose: false,
         }
     }
 }
@@ -225,6 +229,11 @@ impl AnalyzeOptions {
             include_hashes: true,
             ..Default::default()
         }
+    }
+
+    pub fn with_verbose(mut self, verbose: bool) -> Self {
+        self.verbose = verbose;
+        self
     }
 }
 

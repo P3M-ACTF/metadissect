@@ -1,6 +1,6 @@
 # MetaDissect
 
-Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.8.0). Binario: `metadissect`.
+Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.9.0). Binario: `metadissect`.
 
 ## Qué es / qué no es
 
@@ -49,6 +49,8 @@ metadissect analyze documento.pdf -f json
 metadissect fetch https://example.com/page.html -f markdown
 metadissect html --file page.html -f csv
 metadissect json --file data.json
+metadissect imagen.png --sections c2pa,normalized,general
+metadissect imagen.png --verbose
 ```
 
 ## API HTTP JSON (sin UI)
@@ -104,7 +106,7 @@ El análisis es local. Una URL solo se descarga si usas `fetch` o `POST /api/fet
 
 ## English
 
-**MetaDissect** is a Rust **library + CLI + optional JSON HTTP API** (v0.8.0) for exhaustive local metadata analysis. Binary: `metadissect`.
+**MetaDissect** is a Rust **library + CLI + optional JSON HTTP API** (v0.9.0) for exhaustive local metadata analysis. Binary: `metadissect`.
 
 ### What it is / is not
 

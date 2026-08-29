@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0
+
+- **C2PA actions:** promote `softwareAgent` / `version` / `digitalSourceType` and a short parameters summary to flat fields (`Action[i].SoftwareAgent`, `.Version`, `.DigitalSourceType`, `.Parameters`). Full Action JSON remains in `Field.raw`.
+- **C2PA overview:** `ClaimGenerator` / `ClaimGeneratorInfo` now appear on the `c2pa` section (not only `c2pa-manifest`).
+- **Section order:** when a manifest is present, C2PA sections and `normalized` are shown before `png-chunks`.
+- **PNG compact:** `png-chunks` aggregates `IDAT` into `IDATCount` / `IDATBytes` and lists interesting chunks only. `AnalyzeOptions.verbose` / CLI `--verbose` (`-v`) restores the full chunk list and longer table values.
+- **CLI:** `--verbose` / `-v` and optional `--sections c2pa,normalized,general` (matches section id or `id-` prefix).
+
 ## 0.8.0
 
 - **crates.io readiness:** library crate metadata (description, license, repository, homepage, keywords, categories, readme, docs.rs); expanded rustdoc on the crate root.

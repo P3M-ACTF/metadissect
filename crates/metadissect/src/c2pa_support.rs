@@ -198,6 +198,9 @@ pub fn extract(data: &[u8], mime: &str) -> (Vec<Section>, Vec<String>) {
     if let Some(label) = reader.active_label() {
         overview.add("ActiveManifestLabel", label.to_string(), Some("C2PA"));
     }
+    if let Some(manifest) = reader.active_manifest() {
+        push_claim_generator(&mut overview, manifest);
+    }
 
     sections.push(overview);
 
@@ -239,15 +242,7 @@ fn sanitize_id(s: &str) -> String {
         .collect()
 }
 
-fn manifest_section(id: &str, label: &str, manifest: &Manifest) -> Section {
-    let mut sec = Section::new(id, label);
-
-    if let Some(t) = manifest.title() {
-        sec.add("Title", t.to_string(), Some("C2PA"));
-    }
-    if let Some(l) = manifest.label() {
-        sec.add("Label", l.to_string(), Some("C2PA"));
-    }
+fn push_claim_generator(sec: &mut Section, manifest: &Manifest) {
     if let Some(cg) = manifest.claim_generator() {
         sec.add("ClaimGenerator", cg.to_string(), Some("C2PA"));
     }
@@ -266,6 +261,96 @@ fn manifest_section(id: &str, label: &str, manifest: &Manifest) -> Section {
             sec.add(key, v, Some("C2PA"));
         }
     }
+}
+
+fn json_text(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
+fn software_agent_from_json(v: &serde_json::Value) -> (Option<String>, Option<String>) {
+    match v {
+        serde_json::Value::String(s) => (Some(s.clone()), None),
+        serde_json::Value::Object(map) => {
+            let name = map.get("name").map(json_text);
+            let version = map.get("version").map(json_text);
+            (name, version)
+        }
+        _ => (Some(json_text(v)), None),
+    }
+}
+
+fn summarize_parameters(v: &serde_json::Value) -> Option<String> {
+    let obj = v.as_object()?;
+    let mut parts = Vec::new();
+    for (k, val) in obj {
+        if k.eq_ignore_ascii_case("ingredient") || k.eq_ignore_ascii_case("ingredients") {
+            continue;
+        }
+        let s = match val {
+            serde_json::Value::Null => continue,
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Bool(b) => b.to_string(),
+            serde_json::Value::Array(a) => format!("[{} items]", a.len()),
+            serde_json::Value::Object(o) => format!("{{{} keys}}", o.len()),
+        };
+        if s.is_empty() {
+            continue;
+        }
+        parts.push(format!("{k}={s}"));
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(crate::text::truncate_chars(&parts.join("; "), 200))
+    }
+}
+
+/// Promote known Action JSON keys to flat table fields (`Action[i].SoftwareAgent`, …).
+fn promote_action_fields(sec: &mut Section, i: usize, raw: &serde_json::Value) {
+    if let Some(sa) = raw.get("softwareAgent") {
+        let (name, version) = software_agent_from_json(sa);
+        if let Some(name) = name {
+            if !name.is_empty() {
+                sec.add(format!("Action[{i}].SoftwareAgent"), name, Some("C2PA"));
+            }
+        }
+        if let Some(version) = version {
+            if !version.is_empty() {
+                sec.add(format!("Action[{i}].Version"), version, Some("C2PA"));
+            }
+        }
+    }
+    if let Some(dst) = raw.get("digitalSourceType") {
+        let text = json_text(dst);
+        if !text.is_empty() {
+            sec.add(
+                format!("Action[{i}].DigitalSourceType"),
+                text,
+                Some("C2PA"),
+            );
+        }
+    }
+    if let Some(params) = raw.get("parameters") {
+        if let Some(summary) = summarize_parameters(params) {
+            sec.add(format!("Action[{i}].Parameters"), summary, Some("C2PA"));
+        }
+    }
+}
+
+fn manifest_section(id: &str, label: &str, manifest: &Manifest) -> Section {
+    let mut sec = Section::new(id, label);
+
+    if let Some(t) = manifest.title() {
+        sec.add("Title", t.to_string(), Some("C2PA"));
+    }
+    if let Some(l) = manifest.label() {
+        sec.add("Label", l.to_string(), Some("C2PA"));
+    }
+    push_claim_generator(&mut sec, manifest);
     if let Some(fmt) = manifest.format() {
         sec.add("Format", fmt.to_string(), Some("C2PA"));
     }
@@ -344,8 +429,9 @@ fn actions_section(manifest: &Manifest) -> Option<Section> {
             // Action is Serialize in c2pa; ignore if that changes.
             if let Ok(raw) = serde_json::to_value(action) {
                 if let Some(f) = sec.fields.last_mut() {
-                    f.raw = Some(raw);
+                    f.raw = Some(raw.clone());
                 }
+                promote_action_fields(&mut sec, i, &raw);
             }
         }
         break;
@@ -384,6 +470,14 @@ mod tests {
             sections.iter().map(|s| &s.id).collect::<Vec<_>>()
         );
         let overview = sections.iter().find(|s| s.id == "c2pa").unwrap();
+        assert!(
+            overview
+                .fields
+                .iter()
+                .any(|f| f.key == "ClaimGenerator" || f.key == "ClaimGeneratorInfo"),
+            "ClaimGenerator should appear on the C2PA overview, got {:?}",
+            overview.fields.iter().map(|f| &f.key).collect::<Vec<_>>()
+        );
         let state = overview
             .fields
             .iter()
@@ -416,6 +510,21 @@ mod tests {
             "actions={:?}",
             actions.fields
         );
+        let agent_in_raw = actions.fields.iter().any(|f| {
+            f.raw
+                .as_ref()
+                .is_some_and(|r| r.get("softwareAgent").is_some())
+        });
+        if agent_in_raw {
+            assert!(
+                actions
+                    .fields
+                    .iter()
+                    .any(|f| f.key.contains("SoftwareAgent")),
+                "softwareAgent in Action JSON must be promoted to Action[i].SoftwareAgent, got {:?}",
+                actions.fields.iter().map(|f| &f.key).collect::<Vec<_>>()
+            );
+        }
 
         let manifest = sections
             .iter()
@@ -491,5 +600,70 @@ mod tests {
         let a = analyze_buffer(&data, AnalyzeOptions::from_filename("c2pa-sample.png"));
         assert!(a.sections.iter().any(|s| s.id == "c2pa"));
         assert!(a.sections.iter().any(|s| s.id == "c2pa-actions"));
+        let c2pa_idx = a
+            .sections
+            .iter()
+            .position(|s| s.id == "c2pa")
+            .expect("c2pa");
+        let norm_idx = a
+            .sections
+            .iter()
+            .position(|s| s.id == "normalized")
+            .expect("normalized");
+        if let Some(png_idx) = a.sections.iter().position(|s| s.id == "png-chunks") {
+            assert!(
+                c2pa_idx < png_idx,
+                "C2PA overview should appear before png-chunks ({c2pa_idx} vs {png_idx})"
+            );
+            assert!(
+                norm_idx < png_idx,
+                "normalized should appear before png-chunks when a C2PA manifest exists ({norm_idx} vs {png_idx})"
+            );
+        }
+    }
+
+    #[test]
+    fn promote_action_fields_flattens_agent_version_and_params() {
+        let mut sec = Section::new("c2pa-actions", "C2PA actions");
+        let raw = serde_json::json!({
+            "action": "c2pa.created",
+            "softwareAgent": {"name": "gpt-image", "version": "2.0"},
+            "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+            "parameters": {"prompt": "a cat", "ingredient": {"url": "self#jumbf=x"}}
+        });
+        promote_action_fields(&mut sec, 0, &raw);
+        let get = |k: &str| {
+            sec.fields
+                .iter()
+                .find(|f| f.key == k)
+                .unwrap_or_else(|| panic!("missing {k} in {:?}", sec.fields))
+        };
+        assert_eq!(get("Action[0].SoftwareAgent").value, "gpt-image");
+        assert_eq!(get("Action[0].Version").value, "2.0");
+        assert!(get("Action[0].DigitalSourceType")
+            .value
+            .contains("trainedAlgorithmicMedia"));
+        assert!(get("Action[0].Parameters").value.contains("prompt=a cat"));
+        assert!(
+            !get("Action[0].Parameters").value.contains("ingredient="),
+            "hashed ingredient URIs should not clutter the summary"
+        );
+    }
+
+    #[test]
+    fn promote_action_fields_string_software_agent() {
+        let mut sec = Section::new("c2pa-actions", "C2PA actions");
+        promote_action_fields(
+            &mut sec,
+            1,
+            &serde_json::json!({"softwareAgent": "Adobe Photoshop 26.0"}),
+        );
+        assert_eq!(
+            sec.fields
+                .iter()
+                .find(|f| f.key == "Action[1].SoftwareAgent")
+                .map(|f| f.value.as_str()),
+            Some("Adobe Photoshop 26.0")
+        );
     }
 }
