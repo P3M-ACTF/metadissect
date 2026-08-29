@@ -1,0 +1,28 @@
+﻿[workspace]
+resolver = "2"
+members = [
+    "crates/metadissect",
+    "crates/metadissect-cli",
+]
+default-members = [
+    "crates/metadissect",
+    "crates/metadissect-cli",
+]
+
+[workspace.package]
+version = "0.3.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/P3M-ACTF/metadissect"
+authors = ["MetaDissect Contributors"]
+rust-version = "1.89"
+description = "Core library and CLI for exhaustive local metadata extraction."
+
+[workspace.dependencies]
+metadissect = { path = "crates/metadissect", version = "0.3.0" }
+anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "fs", "io-util", "time"] }

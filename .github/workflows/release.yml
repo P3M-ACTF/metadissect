@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Build musl, linux aarch64, Intel mac, Android"
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: metadissect.exe
+            archive: zip
+            full_only: false
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin: metadissect
+            archive: tar
+            full_only: false
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bin: metadissect
+            archive: tar
+            full_only: false
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            bin: metadissect
+            archive: tar
+            cross: true
+            full_only: true
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            bin: metadissect
+            archive: tar
+            cross: true
+            full_only: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            bin: metadissect
+            archive: tar
+            full_only: true
+          - os: ubuntu-latest
+            target: aarch64-linux-android
+            bin: metadissect
+            archive: tar
+            android: true
+            full_only: true
+    runs-on: ${{ matrix.os }}
+    if: ${{ !matrix.full_only || github.event_name == 'workflow_dispatch' && inputs.full || false }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@f20859758cff1f61e8d5c5b6aaf74e8ce42efb99 # v2.8.2
+        with:
+          key: ${{ matrix.target }}
+      - name: Native build
+        if: ${{ !matrix.cross && !matrix.android }}
+        run: cargo build --release --target ${{ matrix.target }} --bin metadissect
+      - name: Cross build (Linux)
+        if: ${{ matrix.cross }}
+        run: |
+          sudo apt-get update
+          case "${{ matrix.target }}" in
+            aarch64-unknown-linux-gnu)
+              sudo apt-get install -y gcc-aarch64-linux-gnu
+              export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+              ;;
+            x86_64-unknown-linux-musl)
+              sudo apt-get install -y musl-tools
+              export CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc
+              ;;
+          esac
+          cargo build --release --target ${{ matrix.target }} --bin metadissect
+      - name: Android / Termux aarch64
+        if: ${{ matrix.android }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          curl -fsSL -o ndk.zip https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
+          unzip -q ndk.zip
+          export ANDROID_NDK_HOME="$PWD/android-ndk-r26d"
+          export CC_aarch64_linux_android="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          export AR_aarch64_linux_android="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CC_aarch64_linux_android"
+          rustup target add aarch64-linux-android
+          cargo build --release --target aarch64-linux-android --bin metadissect
+      - name: Pack (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $out = "metadissect-${{ matrix.target }}"
+          New-Item -ItemType Directory $out | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.bin }}" $out/
+          Copy-Item README.md $out/
+          Compress-Archive -Path $out -DestinationPath "$out.zip"
+      - name: Pack (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          out="metadissect-${{ matrix.target }}"
+          mkdir -p "$out"
+          cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$out/"
+          cp README.md "$out/"
+          tar -czf "$out.tar.gz" "$out"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: metadissect-${{ matrix.target }}
+          path: |
+            metadissect-*.zip
+            metadissect-*.tar.gz
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt || shasum -a 256 * > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          files: dist/**
+          generate_release_notes: true

@@ -1,0 +1,165 @@
+use crate::entropy::shannon_entropy;
+use crate::hashes::compute_hashes;
+use crate::magic::{inspect_magic, mime_from_filename};
+use crate::parsers;
+use crate::types::{Analysis, AnalyzeOptions, Field, Section, Source};
+use std::fs;
+use std::path::Path;
+
+pub fn analyze_buffer(data: &[u8], options: AnalyzeOptions) -> Analysis {
+    let mut magic = inspect_magic(data);
+    if let Some(name) = options.filename.as_deref() {
+        if let Some(hint) = mime_from_filename(name) {
+            if magic.mime == "application/octet-stream" || magic.mime == "text/plain" {
+                magic.mime = hint.to_string();
+            }
+            if name.ends_with(".html") || name.ends_with(".htm") {
+                magic.mime = "text/html".into();
+            }
+        }
+    }
+    if matches!(options.source, Some(Source::Html)) {
+        magic.mime = "text/html".into();
+    }
+    if matches!(options.source, Some(Source::Json)) {
+        magic.mime = "application/json".into();
+    }
+
+    let hashes = if options.include_hashes {
+        compute_hashes(data)
+    } else {
+        Default::default()
+    };
+
+    let mut analysis = Analysis {
+        source: options.source.unwrap_or(Source::File),
+        mime: magic.mime.clone(),
+        filename: options.filename.clone(),
+        size: options.file_size.unwrap_or(data.len() as u64),
+        extracted_at: chrono::Utc::now().to_rfc3339(),
+        hashes,
+        magic,
+        entropy: shannon_entropy(data),
+        sections: Vec::new(),
+        warnings: Vec::new(),
+        notes_educativas: Vec::new(),
+    };
+
+    let mut general = Section::new("general", "General");
+    general.add("MIME", analysis.mime.clone(), Some("General"));
+    general.add("Size", analysis.size.to_string(), Some("General"));
+    general.add(
+        "Entropy",
+        format!("{:.4} bits/byte", analysis.entropy),
+        Some("General"),
+    );
+    general.add("Magic", analysis.magic.description.clone(), Some("General"));
+    general.add(
+        "Signature",
+        analysis.magic.hex_signature.clone(),
+        Some("General"),
+    );
+    if let Some(name) = &analysis.filename {
+        general.add("Filename", name.clone(), Some("General"));
+    }
+    if let Some(url) = &options.source_url {
+        general.add("SourceURL", url.clone(), Some("General"));
+    }
+    if let Some(m) = &options.mtime {
+        general.add("FilesystemMtime", m.clone(), Some("FS"));
+    }
+    if let Some(c) = &options.ctime {
+        general.add("FilesystemCtime", c.clone(), Some("FS"));
+    }
+    if let Some(a) = &options.atime {
+        general.add("FilesystemAtime", a.clone(), Some("FS"));
+    }
+    analysis.push_section(general);
+
+    let mut hash_sec = Section::new("hashes", "Hashes");
+    hash_sec.add("MD5", analysis.hashes.md5.clone(), Some("Hash"));
+    hash_sec.add("SHA-1", analysis.hashes.sha1.clone(), Some("Hash"));
+    hash_sec.add("SHA-256", analysis.hashes.sha256.clone(), Some("Hash"));
+    hash_sec.add("SHA-512", analysis.hashes.sha512.clone(), Some("Hash"));
+    hash_sec.add("BLAKE3", analysis.hashes.blake3.clone(), Some("Hash"));
+    analysis.push_section(hash_sec);
+
+    if !options.response_headers.is_empty() {
+        let mut hs = Section::new("http-headers", "HTTP headers");
+        for (k, v) in &options.response_headers {
+            hs.fields.push(Field::new(k, v).with_namespace("HTTP"));
+        }
+        analysis.push_section(hs);
+    }
+
+    let (secs, warns) = parsers::parse_for_mime(data, &analysis.mime, options.filename.as_deref());
+    analysis.warnings.extend(warns);
+    for s in secs {
+        analysis.push_section(s);
+    }
+
+    if analysis.mime.contains("heic") || analysis.mime.contains("heif") {
+        analysis.warnings.push(
+            "HEIC/HEIF: without libheif this tool lists ISO-BMFF boxes and extracts embedded EXIF/XMP when present. It does not decode pixels or walk item/iloc trees.".into(),
+        );
+    }
+    analysis
+}
+
+pub fn analyze_path(path: &Path) -> crate::error::Result<Analysis> {
+    Ok(analyze_path_with_bytes(path)?.1)
+}
+
+/// Single read: bytes and analysis come from the same buffer (no TOCTOU).
+pub fn analyze_path_with_bytes(path: &Path) -> crate::error::Result<(Vec<u8>, Analysis)> {
+    let data = fs::read(path)?;
+    let analysis = analyze_path_from_bytes(path, &data)?;
+    Ok((data, analysis))
+}
+
+pub fn analyze_path_from_bytes(path: &Path, data: &[u8]) -> crate::error::Result<Analysis> {
+    let meta = fs::metadata(path)?;
+    let mut options = AnalyzeOptions::from_filename(
+        path.file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown")
+            .to_string(),
+    );
+    options.file_size = Some(meta.len());
+    if let Ok(mtime) = meta.modified() {
+        options.mtime = Some(to_rfc(mtime));
+    }
+    if let Ok(ctime) = meta.created() {
+        options.ctime = Some(to_rfc(ctime));
+    }
+    if let Ok(atime) = meta.accessed() {
+        options.atime = Some(to_rfc(atime));
+    }
+    Ok(analyze_buffer(data, options))
+}
+
+pub fn analyze_html_string(html: &str, filename: Option<String>) -> Analysis {
+    let mut options = AnalyzeOptions {
+        filename: filename.or_else(|| Some("input.html".into())),
+        source: Some(Source::Html),
+        include_hashes: true,
+        ..Default::default()
+    };
+    options.source = Some(Source::Html);
+    analyze_buffer(html.as_bytes(), options)
+}
+
+pub fn analyze_json_string(json: &str, filename: Option<String>) -> Analysis {
+    let options = AnalyzeOptions {
+        filename: filename.or_else(|| Some("input.json".into())),
+        source: Some(Source::Json),
+        include_hashes: true,
+        ..Default::default()
+    };
+    analyze_buffer(json.as_bytes(), options)
+}
+
+fn to_rfc(t: std::time::SystemTime) -> String {
+    let dt: chrono::DateTime<chrono::Utc> = t.into();
+    dt.to_rfc3339()
+}
