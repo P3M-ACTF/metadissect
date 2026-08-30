@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1
+
+- **Hotfix CI:** `cargo fmt` (post-`v0.11.0`) and clippy `chunks_exact` → `as_chunks` in OLE `read_lpwstr`. No API changes.
+
 ## 0.11.0
 
 - **meta-ui crate:** shared `shell.css` / `shell.js`, ASCII banners, `ServeStats`, retention store, bearer auth for non-loopback binds, optional ratatui TUI (analyze + serve dashboard).
