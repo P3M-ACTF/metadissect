@@ -6,18 +6,7 @@ Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.11.
 
 **Es:** librería + CLI + API HTTP JSON opcional + TUI interactiva en terminal. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML/MSG, WARC, HTML/JSON, C2PA/JUMBF, PE/ELF/Mach-O, MakerNotes parciales, OLE CFBF legado — subset, etc.). Comandos: `analyze`, `fetch`, `extract`, `html`, `json`, `serve --api`. Formatos: `table`, `json`, `markdown`, `csv` (`--no-tui` para export).
 
-**No es:** interfaz web educativa (eso es MetaInstructor), crawler ni FOCA. Sin UI. No descarga manifiestos C2PA remotos ni incluye la lista de confianza C2PA oficial (firma válida ≠ `Trusted`). No valida cadenas Authenticode (solo lista certificados).
-
-## Qué no entra (este ciclo)
-
-- Paridad total de tags con ExifTool
-- Lista de confianza CAI oficial embebida en el binario
-- Descarga de manifiestos C2PA remotos (sigue siendo solo local)
-- `cargo publish` en crates.io (hace falta `cargo login`)
-- Parsers Fase C restantes: C2PA-in-PDF crate feature, MakerNotes más profundos, validación de cadena Authenticode, PST, HEIC item/iloc, ICC profundo, PAdES completo (OLE `.doc/.xls/.ppt`: subset SummaryInformation + streams)
-- TLS en `serve` (planificado; hoy HTTP plano + token)
-- Dump estilo ExifTool `--compare` / `-G`
-- Actions privadas de MetaTrace/MetaFake (facturación de la org)
+**No es:** interfaz web educativa (eso es MetaInstructor), crawler ni FOCA. Sin UI. No hay paridad total de tags con ExifTool. No descarga manifiestos C2PA remotos ni incluye la lista de confianza C2PA oficial (firma válida ≠ `Trusted`). No valida cadenas Authenticode (solo lista certificados).
 
 `--trust-anchors` / `C2PA_TRUST_ANCHORS` alimentan el verificador CAI (`Settings.trust.trust_anchors`). Sin la lista oficial, **`Valid ≠ Trusted` es lo normal**.
 
@@ -141,18 +130,7 @@ El análisis es local. Una URL solo se descarga si usas `fetch` o `POST /api/fet
 
 **Is:** library, CLI, and thin JSON API (`serve --api`). Commands: `analyze`, `fetch`, `extract`, `html`, `json`, `serve`. Output: `table`, `json`, `markdown`, `csv`. Includes C2PA/JUMBF (feature `c2pa`, default), PE/ELF/Mach-O, WARC, Outlook MSG (subset), and pragmatic MakerNote vendor/subset decode.
 
-**Is not:** an educational web UI (see MetaInstructor), crawler, or FOCA-like tool. Does not fetch remote C2PA manifests or ship the official C2PA trust list. Authenticode is listed, not chain-validated.
-
-### Out of scope (this cycle)
-
-- Full ExifTool tag parity
-- Official CAI trust list bundled in the binary
-- Fetch of remote C2PA manifests (stays local-only)
-- crates.io `cargo publish` (still needs `cargo login`)
-- Phase C parsers remaining: C2PA-in-PDF, deeper MakerNotes, Authenticode chain, PST, HEIC, deep ICC, full PAdES (legacy OLE `.doc/.xls/.ppt`: SummaryInformation subset)
-- TLS for `serve` (planned; today plain HTTP + token)
-- ExifTool `--compare` / `-G` style dump
-- MetaTrace/MetaFake private Actions (org billing)
+**Is not:** an educational web UI (see MetaInstructor), crawler, or FOCA-like tool. No full ExifTool tag parity. Does not fetch remote C2PA manifests or ship the official C2PA trust list. Authenticode is listed, not chain-validated.
 
 `--trust-anchors` / `C2PA_TRUST_ANCHORS` feed the CAI verifier (`Settings.trust.trust_anchors`). Without the official list, **`Valid ≠ Trusted` is normal**.
 
