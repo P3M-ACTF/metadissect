@@ -43,6 +43,8 @@ cargo publish -p metadissect
 ```
 
 4. Tag `vX.Y.Z` and publish [Releases](https://github.com/P3M-ACTF/metadissect/releases) (CLI binaries).
-5. Downstream repos update `metadissect = { git = "...", tag = "vX.Y.Z" }` (and CI `ref:`) — keep local `[patch]` for umbrella work.
+5. Downstream repos update `metadissect` / `meta-ui` git `tag = "vX.Y.Z"` (and CI `ref:`) — keep local `[patch]` for umbrella work.
 
-`metadissect-cli` has `publish = false` (binario vía GitHub Releases, no crates.io).
+`metadissect-cli` and `meta-ui` have `publish = false`. Only publish the `metadissect` library crate.
+
+**crates.io:** `cargo publish -p metadissect` requires `cargo login` on the maintainer machine. If not logged in, run `cargo publish -p metadissect --dry-run` only and document the gap in CHANGELOG.

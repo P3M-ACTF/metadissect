@@ -14,8 +14,13 @@ publish = false
 name = "metadissect"
 path = "src/main.rs"
 
+[features]
+default = ["tui"]
+tui = ["meta-ui/tui"]
+
 [dependencies]
 metadissect.workspace = true
+meta-ui.workspace = true
 anyhow.workspace = true
 axum = { version = "0.8", features = ["multipart"] }
 clap = { version = "4", features = ["derive", "env"] }

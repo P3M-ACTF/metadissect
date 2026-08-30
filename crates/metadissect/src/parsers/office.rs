@@ -32,14 +32,7 @@ pub fn parse_office_at_depth(
         if crate::parsers::msg::looks_like_msg(data) {
             return crate::parsers::msg::parse_msg(data);
         }
-        let mut s = Section::new("ole", "OLE Compound File");
-        s.add("Signature", "D0 CF 11 E0 A1 B1 1A E1", Some("OLE"));
-        s.add("Size", data.len().to_string(), Some("OLE"));
-        s.add("EmbedDepth", depth.to_string(), Some("OLE"));
-        return (
-            vec![s],
-            vec!["Legacy Office (.doc/.xls/.ppt) OLE/CFBF is detected but not parsed. Outlook .msg is handled separately. Export Office to OOXML or use MetaTrace + ExifTool.".into()],
-        );
+        return crate::parsers::ole::parse_legacy_ole(data, depth);
     }
     parse_zip_xml_package_at_depth(data, depth, max_depth)
 }

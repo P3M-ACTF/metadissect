@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0
+
+- **meta-ui crate:** shared `shell.css` / `shell.js`, ASCII banners, `ServeStats`, retention store, bearer auth for non-loopback binds, optional ratatui TUI (analyze + serve dashboard).
+- **CLI:** interactive analyze TUI by default on TTY (`--no-tui`, `--format table|json|csv|markdown`); `serve --api` shows live stats dashboard on TTY.
+- **Serve:** `--token` / `META_SERVE_TOKEN` for remote bind; `Authorization: Bearer` or `?token=`; `--retain-dir` + `--retain-ttl`; `GET /api/retained`.
+- **OLE CFBF (subset):** legacy `.doc/.xls/.ppt` stream inventory + SummaryInformation Title/Author/…; full binary metadata still out of scope.
+- **Banners:** TTY-only ASCII art; `--no-banner`; skipped in CI / `NO_COLOR`.
+
 ## 0.10.0
 
 - **C2PA trust anchors:** `--trust-anchors PATH` (PEM file or directory of `.pem`/`.crt`/`.cer`) and env `C2PA_TRUST_ANCHORS` are passed to the CAI crate as `Settings.trust.trust_anchors`. Without the official CAI trust list (not bundled), `Valid ≠ Trusted` is the expected result.
@@ -13,7 +21,7 @@
 - Official CAI trust list bundled in the binary
 - Fetch of remote C2PA manifests (stays local-only)
 - crates.io `cargo publish` (still needs `cargo login`)
-- Phase C parsers: OLE CFBF `.doc/.xls/.ppt`, C2PA-in-PDF crate feature, deeper MakerNotes, Authenticode chain validation, PST, HEIC item/iloc, deep ICC, full PAdES
+- Phase C parsers: C2PA-in-PDF crate feature, deeper MakerNotes, Authenticode chain validation, PST, HEIC item/iloc, deep ICC, full PAdES
 - ExifTool `--compare` / `-G` style dump
 - MetaTrace/MetaFake private Actions (org billing)
 

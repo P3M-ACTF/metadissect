@@ -1,10 +1,10 @@
 # MetaDissect
 
-Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.10.0). Binario: `metadissect`.
+Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.11.0). Binario: `metadissect`.
 
 ## Qué es / qué no es
 
-**Es:** librería + CLI + API HTTP JSON opcional. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML/MSG, WARC, HTML/JSON, C2PA/JUMBF, PE/ELF/Mach-O, MakerNotes parciales, etc.). Comandos: `analyze`, `fetch`, `extract`, `html`, `json`, `serve --api`. Formatos: `table`, `json`, `markdown`, `csv`.
+**Es:** librería + CLI + API HTTP JSON opcional + TUI interactiva en terminal. Extrae tags que cada parser lee (PDF, Office, imágenes, audio, EML/MSG, WARC, HTML/JSON, C2PA/JUMBF, PE/ELF/Mach-O, MakerNotes parciales, OLE CFBF legado — subset, etc.). Comandos: `analyze`, `fetch`, `extract`, `html`, `json`, `serve --api`. Formatos: `table`, `json`, `markdown`, `csv` (`--no-tui` para export).
 
 **No es:** interfaz web educativa (eso es MetaInstructor), crawler ni FOCA. Sin UI. No descarga manifiestos C2PA remotos ni incluye la lista de confianza C2PA oficial (firma válida ≠ `Trusted`). No valida cadenas Authenticode (solo lista certificados).
 
@@ -14,7 +14,8 @@ Biblioteca y CLI Rust para análisis **local y exhaustivo** de metadatos (v0.10.
 - Lista de confianza CAI oficial embebida en el binario
 - Descarga de manifiestos C2PA remotos (sigue siendo solo local)
 - `cargo publish` en crates.io (hace falta `cargo login`)
-- Parsers de la Fase C: OLE CFBF `.doc/.xls/.ppt`, feature C2PA-in-PDF del crate, MakerNotes más profundos, validación de cadena Authenticode, PST, HEIC item/iloc, ICC profundo, PAdES completo
+- Parsers Fase C restantes: C2PA-in-PDF crate feature, MakerNotes más profundos, validación de cadena Authenticode, PST, HEIC item/iloc, ICC profundo, PAdES completo (OLE `.doc/.xls/.ppt`: subset SummaryInformation + streams)
+- TLS en `serve` (planificado; hoy HTTP plano + token)
 - Dump estilo ExifTool `--compare` / `-G`
 - Actions privadas de MetaTrace/MetaFake (facturación de la org)
 
@@ -56,7 +57,8 @@ cargo build --release -p metadissect-cli
 ## Ejemplos CLI
 
 ```bash
-metadissect foto.jpg
+metadissect foto.jpg                    # TUI analyze en TTY
+metadissect foto.jpg --no-tui -f json   # export sin TUI
 metadissect analyze documento.pdf -f json
 metadissect fetch https://example.com/page.html -f markdown
 metadissect html --file page.html -f csv
@@ -69,19 +71,27 @@ metadissect extract imagen.png --thumbnail -o thumb.jpg
 metadissect extract imagen.png --c2pa-icon -o icon.bin
 ```
 
-## API HTTP JSON (sin UI)
+## TUI analyze
 
-Por defecto solo escucha en localhost. Aviso si usas `0.0.0.0` / `::` (sin autenticación).
+En TTY, `analyze` abre una TUI ratatui (secciones, campos, `/` filtrar, `j/k` mover, `q` salir). Usa `--no-tui` o `-f json|csv|markdown` para export estructurado. Ver [`docs/tui.md`](docs/tui.md).
+
+## API HTTP JSON (sin UI educativa)
+
+Por defecto solo escucha en localhost. En bind remoto (`0.0.0.0`, `::`, etc.) exige token.
 
 ```bash
 metadissect serve --api
-# http://127.0.0.1:8787
-metadissect serve --api --host 127.0.0.1 --port 8787
+# http://127.0.0.1:8787  (+ dashboard TUI de stats en TTY)
+metadissect serve --api --host 0.0.0.0 --token "$META_SERVE_TOKEN"
+metadissect serve --api --retain-dir ./uploads --retain-ttl 3600
 ```
+
+Auth remota: header `Authorization: Bearer TOKEN` **o** query `?token=TOKEN`. Variable/env: `META_SERVE_TOKEN` / `--token`. Ver [`docs/serve.md`](docs/serve.md).
 
 | Método | Ruta | Cuerpo |
 |--------|------|--------|
 | `GET` | `/api/health` | — |
+| `GET` | `/api/retained` | lista uploads retenidos (`--retain-dir`) |
 | `POST` | `/api/analyze` | `multipart` con archivo |
 | `POST` | `/api/analyze-text` | JSON `{ "text", "kind": "html\|json", "filename"? }` |
 | `POST` | `/api/fetch` | JSON `{ "url" }` (misma política anti-SSRF que `fetch`) |
@@ -89,6 +99,8 @@ metadissect serve --api --host 127.0.0.1 --port 8787
 ```bash
 curl -s http://127.0.0.1:8787/api/health
 curl -s -F "file=@foto.jpg" http://127.0.0.1:8787/api/analyze
+curl -s -H "Authorization: Bearer $META_SERVE_TOKEN" http://HOST:8787/api/health
+curl -s "http://HOST:8787/api/health?token=$META_SERVE_TOKEN"
 ```
 
 ## Librería
@@ -112,7 +124,8 @@ El análisis es local. Una URL solo se descarga si usas `fetch` o `POST /api/fet
 | Crate | Rol |
 |-------|-----|
 | `metadissect` | Librería de análisis (publicable en crates.io) |
-| `metadissect-cli` | Binario `metadissect` (CLI + `serve --api`) |
+| `metadissect-cli` | Binario `metadissect` (CLI + `serve --api`; `publish = false`) |
+| `meta-ui` | Shell compartido, banners, stats serve, TUI (`publish = false`; consumidores lo toman del repo) |
 
 ## Licencia
 
@@ -122,7 +135,7 @@ El análisis es local. Una URL solo se descarga si usas `fetch` o `POST /api/fet
 
 ## English
 
-**MetaDissect** is a Rust **library + CLI + optional JSON HTTP API** (v0.10.0) for exhaustive local metadata analysis. Binary: `metadissect`.
+**MetaDissect** is a Rust **library + CLI + optional JSON HTTP API** (v0.11.0) for exhaustive local metadata analysis. Binary: `metadissect`.
 
 ### What it is / is not
 
@@ -136,7 +149,8 @@ El análisis es local. Una URL solo se descarga si usas `fetch` o `POST /api/fet
 - Official CAI trust list bundled in the binary
 - Fetch of remote C2PA manifests (stays local-only)
 - crates.io `cargo publish` (still needs `cargo login`)
-- Phase C parsers: OLE CFBF `.doc/.xls/.ppt`, C2PA-in-PDF crate feature, deeper MakerNotes, Authenticode chain validation, PST, HEIC item/iloc, deep ICC, full PAdES
+- Phase C parsers remaining: C2PA-in-PDF, deeper MakerNotes, Authenticode chain, PST, HEIC, deep ICC, full PAdES (legacy OLE `.doc/.xls/.ppt`: SummaryInformation subset)
+- TLS for `serve` (planned; today plain HTTP + token)
 - ExifTool `--compare` / `-G` style dump
 - MetaTrace/MetaFake private Actions (org billing)
 
@@ -162,11 +176,9 @@ From [Releases](https://github.com/P3M-ACTF/metadissect/releases), or `cargo bui
 ### CLI / API
 
 ```bash
-metadissect foto.jpg
+metadissect foto.jpg              # TUI on TTY
 metadissect analyze documento.pdf -f json
-metadissect imagen.png --trust-anchors ./c2pa-trust.pem
-metadissect extract imagen.png --assertion c2pa.actions -o actions.json
-metadissect serve --api   # http://127.0.0.1:8787
+metadissect serve --api --token "$META_SERVE_TOKEN"
 ```
 
 ### Privacy
@@ -175,7 +187,7 @@ Analysis is local. URLs are fetched only via `fetch` / `POST /api/fetch`.
 
 ### Crates
 
-`metadissect` (library, crates.io), `metadissect-cli` (binary; not published).
+`metadissect` (library, crates.io), `metadissect-cli` and `meta-ui` (not published; `meta-ui` is consumed via git tag from this repo).
 
 ### License
 

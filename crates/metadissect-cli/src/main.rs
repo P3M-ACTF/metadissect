@@ -2,6 +2,9 @@ mod api;
 
 use anyhow::Result;
 use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
+use meta_ui::{maybe_print_banner, Product};
+#[cfg(feature = "tui")]
+use meta_ui::tui::{run_analyze_tui, should_use_analyze_tui};
 use metadissect::export::{to_csv, to_json, to_markdown};
 use metadissect::{
     analyze_html_string, analyze_json_string, analyze_path_with_options, AnalyzeOptions,
@@ -30,6 +33,10 @@ struct Cli {
     /// PEM file or directory of C2PA trust-anchor certificates (env: C2PA_TRUST_ANCHORS)
     #[arg(long, global = true, value_name = "PATH", env = "C2PA_TRUST_ANCHORS")]
     trust_anchors: Option<PathBuf>,
+    #[arg(long, global = true)]
+    no_tui: bool,
+    #[arg(long, global = true)]
+    no_banner: bool,
 }
 
 #[derive(Subcommand)]
@@ -81,6 +88,12 @@ enum Command {
         /// Listen port
         #[arg(long, default_value = "8787")]
         port: u16,
+        #[arg(long, env = "META_SERVE_TOKEN")]
+        token: Option<String>,
+        #[arg(long)]
+        retain_dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 3600)]
+        retain_ttl: u64,
     },
 }
 
@@ -97,6 +110,8 @@ struct DisplayOpts {
     verbose: bool,
     sections: Option<Vec<String>>,
     trust_anchors: Option<PathBuf>,
+    no_tui: bool,
+    no_banner: bool,
 }
 
 impl DisplayOpts {
@@ -106,6 +121,8 @@ impl DisplayOpts {
             verbose: cli.verbose,
             sections: cli.sections.clone(),
             trust_anchors: cli.trust_anchors.clone(),
+            no_tui: cli.no_tui,
+            no_banner: cli.no_banner,
         }
     }
 
@@ -162,13 +179,24 @@ async fn main() -> Result<()> {
             api: enable_api,
             host,
             port,
+            token,
+            retain_dir,
+            retain_ttl,
         }) => {
             if !enable_api {
                 anyhow::bail!(
                     "MetaDissect has no web UI. Pass --api to serve the JSON HTTP API, e.g.:\n  metadissect serve --api\n  metadissect serve --api --host 127.0.0.1 --port 8787"
                 );
             }
-            api::serve(&host, port).await?;
+            api::serve(api::ServeOpts {
+                host,
+                port,
+                no_banner: display.no_banner,
+                token,
+                retain_dir,
+                retain_ttl_secs: retain_ttl,
+            })
+            .await?;
         }
         None => {
             let path = cli.path.ok_or_else(|| {
@@ -232,7 +260,14 @@ fn run_extract(
 }
 
 fn print_analysis(a: &metadissect::Analysis, display: &DisplayOpts) -> Result<()> {
+    maybe_print_banner(Product::Metadissect, display.no_banner);
     let filtered = filter_analysis(a, display.sections.as_deref())?;
+    let structured = !matches!(display.format, OutputFormat::Table);
+    #[cfg(feature = "tui")]
+    if should_use_analyze_tui(structured, display.no_tui) {
+        run_analyze_tui(&filtered)?;
+        return Ok(());
+    }
     match display.format {
         OutputFormat::Json => println!("{}", to_json(&filtered)?),
         OutputFormat::Csv => print!("{}", to_csv(&filtered)),

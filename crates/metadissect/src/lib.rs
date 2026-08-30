@@ -155,14 +155,15 @@ mod tests {
     }
 
     #[test]
-    fn ole_compound_is_detected_not_parsed() {
+    fn ole_compound_is_detected_with_subset_parser() {
         let mut ole = vec![0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
         ole.extend_from_slice(&[0u8; 64]);
         let a = analyze_buffer(&ole, AnalyzeOptions::from_filename("legacy.doc"));
-        assert!(a
-            .warnings
-            .iter()
-            .any(|w| w.contains("OLE") || w.contains("not parsed")));
+        assert!(
+            a.sections.iter().any(|s| s.id == "ole-cfbf")
+                || a.warnings.iter().any(|w| w.contains("OLE")),
+            "expected ole-cfbf section or OLE warning"
+        );
     }
 
     #[test]

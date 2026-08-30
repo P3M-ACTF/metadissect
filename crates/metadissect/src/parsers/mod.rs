@@ -11,6 +11,7 @@ pub mod macho;
 pub mod makernote;
 pub mod msg;
 pub mod office;
+pub mod ole;
 pub mod pdf;
 pub mod pe;
 pub mod png;
