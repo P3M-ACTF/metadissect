@@ -2,9 +2,9 @@ mod api;
 
 use anyhow::Result;
 use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
-use meta_ui::{maybe_print_banner, Product};
 #[cfg(feature = "tui")]
 use meta_ui::tui::{run_analyze_tui, should_use_analyze_tui};
+use meta_ui::{maybe_print_banner, Product};
 use metadissect::export::{to_csv, to_json, to_markdown};
 use metadissect::{
     analyze_html_string, analyze_json_string, analyze_path_with_options, AnalyzeOptions,

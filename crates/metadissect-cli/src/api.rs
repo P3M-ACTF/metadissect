@@ -7,9 +7,9 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use meta_ui::{
-    check_serve_token, is_headless_env, is_tty_stdio, maybe_print_banner,
-    query_token_param, shell_css, shell_css_mime,
-    shell_js, shell_js_mime, Product, RetainConfig, RetainStore, ServeStats,
+    check_serve_token, is_headless_env, is_tty_stdio, maybe_print_banner, query_token_param,
+    shell_css, shell_css_mime, shell_js, shell_js_mime, Product, RetainConfig, RetainStore,
+    ServeStats,
 };
 use metadissect::{
     analyze_buffer, analyze_html_string, analyze_json_string, AnalyzeOptions, Source,
@@ -43,9 +43,10 @@ pub async fn serve(opts: ServeOpts) -> anyhow::Result<()> {
         host: opts.host.clone(),
         token,
     };
-    let retain = Arc::new(RetainStore::new(
-        RetainConfig::new(opts.retain_dir.unwrap_or_default(), opts.retain_ttl_secs),
-    ));
+    let retain = Arc::new(RetainStore::new(RetainConfig::new(
+        opts.retain_dir.unwrap_or_default(),
+        opts.retain_ttl_secs,
+    )));
     let stats = Arc::new(ServeStats::new());
     let stop = Arc::new(AtomicBool::new(false));
 
@@ -137,14 +138,7 @@ async fn auth_middleware(
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok());
     let query_token = query_token_param(req.uri().query());
-    if check_serve_token(
-        &auth.host,
-        auth.token.as_deref(),
-        provided,
-        query_token,
-    )
-    .is_err()
-    {
+    if check_serve_token(&auth.host, auth.token.as_deref(), provided, query_token).is_err() {
         return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
     next.run(req).await
@@ -204,7 +198,10 @@ fn session_id(headers: &axum::http::HeaderMap) -> String {
     if let Some(v) = headers.get("x-meta-session").and_then(|h| h.to_str().ok()) {
         return v.to_string();
     }
-    if let Some(cookie) = headers.get(axum::http::header::COOKIE).and_then(|h| h.to_str().ok()) {
+    if let Some(cookie) = headers
+        .get(axum::http::header::COOKIE)
+        .and_then(|h| h.to_str().ok())
+    {
         for part in cookie.split(';') {
             let part = part.trim();
             if let Some(id) = part.strip_prefix("meta_session=") {

@@ -4,7 +4,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
 use crossterm::ExecutableCommand;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Style};
@@ -76,16 +78,10 @@ fn draw_dashboard(f: &mut Frame, stats: &ServeStats, opts: &ServeDashboardOption
 
     let stats_line = format!(
         "RPS {:.1}  total {}  2xx {}  4xx {}  5xx {}  p50 {}ms  p99 {}ms",
-        snap.rps,
-        snap.total,
-        snap.ok_2xx,
-        snap.err_4xx,
-        snap.err_5xx,
-        snap.p50_ms,
-        snap.p99_ms
+        snap.rps, snap.total, snap.ok_2xx, snap.err_4xx, snap.err_5xx, snap.p50_ms, snap.p99_ms
     );
-    let stats_p = Paragraph::new(stats_line)
-        .block(Block::default().borders(Borders::ALL).title("Stats"));
+    let stats_p =
+        Paragraph::new(stats_line).block(Block::default().borders(Borders::ALL).title("Stats"));
     f.render_widget(stats_p, chunks[1]);
 
     let spark_data: Vec<u64> = snap.sparkline.clone();
@@ -98,13 +94,16 @@ fn draw_dashboard(f: &mut Frame, stats: &ServeStats, opts: &ServeDashboardOption
                 .collect::<Vec<_>>(),
         )
         .style(Style::default().fg(Color::Cyan));
-    let spark_block = spark.block(Block::default().borders(Borders::ALL).title("RPS sparkline"));
+    let spark_block = spark.block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("RPS sparkline"),
+    );
     f.render_widget(spark_block, chunks[2]);
 
     let last = format!(
         "Last: {} → {}    q or Ctrl+C to stop",
-        snap.last_route,
-        snap.last_status
+        snap.last_route, snap.last_status
     );
     let foot = Paragraph::new(Line::from(last)).style(Style::default().fg(Color::DarkGray));
     f.render_widget(foot, chunks[3]);

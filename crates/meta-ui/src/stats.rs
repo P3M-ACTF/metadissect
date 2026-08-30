@@ -304,13 +304,7 @@ mod tests {
     #[test]
     fn query_token_remote_only() {
         assert!(check_serve_token("127.0.0.1", None, None, Some("x")).is_ok());
-        assert!(check_serve_token(
-            "0.0.0.0",
-            Some("secret"),
-            None,
-            Some("secret")
-        )
-        .is_ok());
+        assert!(check_serve_token("0.0.0.0", Some("secret"), None, Some("secret")).is_ok());
         assert_eq!(
             check_serve_token("0.0.0.0", Some("secret"), None, Some("wrong")),
             Err(StatusCode::UNAUTHORIZED)

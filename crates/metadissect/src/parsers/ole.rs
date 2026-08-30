@@ -62,11 +62,7 @@ pub fn parse_legacy_ole(data: &[u8], depth: u8) -> (Vec<Section>, Vec<String>) {
             .push(Field::new("Stream", name.clone()).with_namespace("OLE"));
     }
     if streams.len() > 32 {
-        listing.add(
-            "MoreStreams",
-            (streams.len() - 32).to_string(),
-            Some("OLE"),
-        );
+        listing.add("MoreStreams", (streams.len() - 32).to_string(), Some("OLE"));
     }
 
     let mut sections = vec![root, listing];
@@ -94,7 +90,10 @@ pub fn parse_legacy_ole(data: &[u8], depth: u8) -> (Vec<Section>, Vec<String>) {
         warnings.push("SummaryInformation stream not found or unreadable.".into());
     }
 
-    if streams.iter().any(|s| s.contains("DocumentSummaryInformation")) {
+    if streams
+        .iter()
+        .any(|s| s.contains("DocumentSummaryInformation"))
+    {
         let mut sec = Section::new("ole-doc-summary", "DocumentSummaryInformation");
         sec.add("Present", "yes", Some("OLE:DocSummary"));
         sections.push(sec);
@@ -243,9 +242,9 @@ fn read_typed_value(data: &[u8], offset: usize) -> Option<String> {
         data[offset + 3],
     ]);
     match vt {
-        0x1E => read_lpstr(data, offset + 4), // VT_LPSTR
-        0x1F => read_lpwstr(data, offset + 4), // VT_LPWSTR
-        0x0040 => read_filetime(data, offset + 4), // VT_FILETIME
+        0x1E => read_lpstr(data, offset + 4),            // VT_LPSTR
+        0x1F => read_lpwstr(data, offset + 4),           // VT_LPWSTR
+        0x0040 => read_filetime(data, offset + 4),       // VT_FILETIME
         0x0042 => read_clipdata_lpstr(data, offset + 4), // VT_CLSID — skip
         _ => None,
     }
@@ -363,15 +362,17 @@ mod tests {
         let mut out = vec![0u8; author_val_off + 4 + 4 + author_bytes.len() + 1];
         out[0..2].copy_from_slice(&[0xFE, 0xFF]); // byte order
         out[24..28].copy_from_slice(&1u32.to_le_bytes()); // section count
-        // format id + offset for section 0
+                                                          // format id + offset for section 0
         out[28..44].fill(0);
         out[44..48].copy_from_slice(&(section_off as u32).to_le_bytes());
         out[section_off..section_off + 4].copy_from_slice(&(section_size as u32).to_le_bytes());
         out[section_off + 4..section_off + 8].copy_from_slice(&prop_count.to_le_bytes());
         out[section_off + 8..section_off + 12].copy_from_slice(&PID_TITLE.to_le_bytes());
-        out[section_off + 12..section_off + 16].copy_from_slice(&(title_val_off as u32).to_le_bytes());
+        out[section_off + 12..section_off + 16]
+            .copy_from_slice(&(title_val_off as u32).to_le_bytes());
         out[section_off + 16..section_off + 20].copy_from_slice(&PID_AUTHOR.to_le_bytes());
-        out[section_off + 20..section_off + 24].copy_from_slice(&(author_val_off as u32).to_le_bytes());
+        out[section_off + 20..section_off + 24]
+            .copy_from_slice(&(author_val_off as u32).to_le_bytes());
         out[title_val_off..title_val_off + 4].copy_from_slice(&0x1Eu32.to_le_bytes());
         out[title_val_off + 4..title_val_off + 8]
             .copy_from_slice(&((title_bytes.len() + 1) as u32).to_le_bytes());
@@ -392,8 +393,14 @@ mod tests {
             .iter()
             .find(|s| s.id == "ole-summary")
             .expect("summary section");
-        assert!(summary.fields.iter().any(|f| f.key == "Title" && f.value == "Test Doc"));
-        assert!(summary.fields.iter().any(|f| f.key == "Author" && f.value == "Alice"));
+        assert!(summary
+            .fields
+            .iter()
+            .any(|f| f.key == "Title" && f.value == "Test Doc"));
+        assert!(summary
+            .fields
+            .iter()
+            .any(|f| f.key == "Author" && f.value == "Alice"));
     }
 
     #[test]

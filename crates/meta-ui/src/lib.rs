@@ -9,7 +9,7 @@ mod stats;
 #[cfg(feature = "tui")]
 pub mod tui;
 
-pub use assets::{shell_css, shell_js, shell_css_mime, shell_js_mime};
+pub use assets::{shell_css, shell_css_mime, shell_js, shell_js_mime};
 pub use banner::{maybe_print_banner, Product};
 pub use net::{
     is_headless_env, is_loopback_host, is_tty_stdio, remote_bind_requires_token, warn_remote_bind,

@@ -28,11 +28,7 @@ pub fn is_headless_env() -> bool {
 
 pub fn is_loopback_host(host: &str) -> bool {
     let h = host.trim().to_ascii_lowercase();
-    h == "127.0.0.1"
-        || h == "localhost"
-        || h == "::1"
-        || h == "[::1]"
-        || h.starts_with("127.")
+    h == "127.0.0.1" || h == "localhost" || h == "::1" || h == "[::1]" || h.starts_with("127.")
 }
 
 pub fn remote_bind_requires_token(host: &str) -> bool {

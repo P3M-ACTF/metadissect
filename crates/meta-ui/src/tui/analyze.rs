@@ -1,7 +1,9 @@
 use std::io;
 
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
 use crossterm::ExecutableCommand;
 use metadissect::{Analysis, Section};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -198,7 +200,11 @@ fn draw_analyze(f: &mut Frame, app: &mut AnalyzeApp) {
 
     let mid = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(28), Constraint::Percentage(42), Constraint::Percentage(30)])
+        .constraints([
+            Constraint::Percentage(28),
+            Constraint::Percentage(42),
+            Constraint::Percentage(30),
+        ])
         .split(chunks[1]);
 
     let section_items: Vec<ListItem> = app
@@ -214,8 +220,8 @@ fn draw_analyze(f: &mut Frame, app: &mut AnalyzeApp) {
             ListItem::new(format!("{} ({})", s.label, s.fields.len())).style(style)
         })
         .collect();
-    let sections = List::new(section_items)
-        .block(Block::default().borders(Borders::ALL).title("Sections"));
+    let sections =
+        List::new(section_items).block(Block::default().borders(Borders::ALL).title("Sections"));
     f.render_widget(sections, mid[0]);
 
     let field_items: Vec<ListItem> = app
@@ -232,8 +238,8 @@ fn draw_analyze(f: &mut Frame, app: &mut AnalyzeApp) {
             ListItem::new(format!("{}  {}", f.key, truncate(&f.value, 48))).style(style)
         })
         .collect();
-    let fields = List::new(field_items)
-        .block(Block::default().borders(Borders::ALL).title("Fields"));
+    let fields =
+        List::new(field_items).block(Block::default().borders(Borders::ALL).title("Fields"));
     f.render_widget(fields, mid[1]);
 
     let warn_text = if app.warnings.is_empty() {
