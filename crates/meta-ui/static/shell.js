@@ -146,6 +146,83 @@
     return out;
   }
 
+  function wireGlossaryOverlay(opts) {
+    const explainAside = opts.explainEl || $("explain");
+    const bodyEl = explainAside?.querySelector("#explain-body") || explainAside;
+    const toggleKey = opts.toggleKey || "?";
+    const mq = window.matchMedia("(max-width: 900px)");
+    const toggleBtn = opts.toggleBtn || $("explain-toggle");
+
+    let overlay = $("glossary-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "glossary-overlay";
+      overlay.className = "glossary-overlay";
+      overlay.hidden = true;
+      overlay.innerHTML = `
+        <div class="glossary-panel" role="dialog" aria-modal="true" aria-labelledby="glossary-overlay-title">
+          <h2 id="glossary-overlay-title">¿Qué significa esto?</h2>
+          <div id="explain-overlay-body"></div>
+          <button type="button" class="glossary-close" id="glossary-close">Cerrar</button>
+        </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    const overlayBody = $("explain-overlay-body");
+    const closeBtn = $("glossary-close");
+
+    function isNarrow() {
+      return mq.matches;
+    }
+
+    function syncOverlay() {
+      if (overlayBody && bodyEl) overlayBody.innerHTML = bodyEl.innerHTML;
+    }
+
+    function openOverlay() {
+      syncOverlay();
+      overlay.hidden = false;
+      if (toggleBtn) toggleBtn.setAttribute("aria-expanded", "true");
+      closeBtn?.focus();
+    }
+
+    function closeOverlay() {
+      overlay.hidden = true;
+      if (toggleBtn) toggleBtn.setAttribute("aria-expanded", "false");
+    }
+
+    function toggleOverlay() {
+      if (overlay.hidden) openOverlay();
+      else closeOverlay();
+    }
+
+    function resetAsideScroll() {
+      if (explainAside) explainAside.scrollTop = 0;
+    }
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeOverlay();
+    });
+    closeBtn?.addEventListener("click", closeOverlay);
+    toggleBtn?.addEventListener("click", toggleOverlay);
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !overlay.hidden) {
+        e.preventDefault();
+        closeOverlay();
+        return;
+      }
+      if (e.key !== toggleKey || e.ctrlKey || e.metaKey || e.altKey) return;
+      const tag = e.target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (!isNarrow()) return;
+      e.preventDefault();
+      toggleOverlay();
+    });
+
+    return { isNarrow, openOverlay, closeOverlay, toggleOverlay, syncOverlay, resetAsideScroll };
+  }
+
   global.MetaShell = {
     $,
     copyText,
@@ -154,6 +231,7 @@
     wireDropZone,
     renderChips,
     wireCopyClicks,
+    wireGlossaryOverlay,
     toCsv,
     toMd,
   };

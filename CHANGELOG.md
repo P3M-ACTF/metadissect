@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.2
+
+- **meta-ui TUI:** `ListState` + `render_stateful_widget` for Fields/Sections lists; scroll follows selection; PageUp/PageDown/Home/End; footer counter (`3/142`).
+- **meta-ui web shell:** sticky explain panel (`height: 100vh`, `min-height: 0` on main); mobile glossary overlay via `wireGlossaryOverlay` (`?` / Esc).
+
 ## 0.11.1
 
 - **Hotfix CI:** `cargo fmt` (post-`v0.11.0`) and clippy `chunks_exact` → `as_chunks` in OLE `read_lpwstr`. No API changes.

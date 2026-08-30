@@ -26,12 +26,26 @@ body.shell-with-aside {
   display: grid;
   grid-template-columns: 1fr 300px;
   grid-template-rows: auto auto auto 1fr;
+  height: 100vh;
+  overflow: hidden;
 }
 body.shell-with-aside header,
 body.shell-with-aside .intake,
 body.shell-with-aside .status,
 body.shell-with-aside main { grid-column: 1; }
+body.shell-with-aside main {
+  min-height: 0;
+  overflow: auto;
+}
 body.shell-with-aside aside { grid-column: 2; grid-row: 1 / -1; }
+body.shell-with-aside aside#explain {
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  align-self: start;
+}
+.explain-toggle { display: none; }
 header {
   display: flex;
   justify-content: space-between;
@@ -288,6 +302,11 @@ details.section:not([open]) > summary::before { content: "▸"; }
   overflow: auto;
   padding: 1rem 1.2rem;
 }
+.glossary-panel h2 { font-size: 0.95rem; margin: 0 0 0.6rem; }
+.glossary-close {
+  margin-top: 0.75rem;
+  width: 100%;
+}
 .split {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -304,7 +323,9 @@ details.section:not([open]) > summary::before { content: "▸"; }
 .hex { font-family: var(--mono); font-size: 0.78rem; white-space: pre-wrap; }
 @media (max-width: 900px) {
   body.shell-with-aside { grid-template-columns: 1fr; }
-  body.shell-with-aside aside {
+  body.shell-with-aside aside#explain { display: none; }
+  .explain-toggle { display: inline-flex; }
+  body.shell-with-aside aside:not(#explain) {
     grid-column: 1;
     grid-row: auto;
     border-left: 0;

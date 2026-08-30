@@ -8,7 +8,7 @@ use crossterm::ExecutableCommand;
 use metadissect::{Analysis, Section};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::Frame;
 
 /// Use interactive TUI when stdout is a TTY, format is not structured export, and --no-tui was not passed.
@@ -31,6 +31,10 @@ pub fn run_analyze_tui(analysis: &Analysis) -> io::Result<()> {
                     KeyCode::Char('q') | KeyCode::Esc => break Ok(()),
                     KeyCode::Char('j') | KeyCode::Down => app.next_field(),
                     KeyCode::Char('k') | KeyCode::Up => app.prev_field(),
+                    KeyCode::PageDown if !app.search_mode => app.page_down_fields(),
+                    KeyCode::PageUp if !app.search_mode => app.page_up_fields(),
+                    KeyCode::Home if !app.search_mode => app.first_field(),
+                    KeyCode::End if !app.search_mode => app.last_field(),
                     KeyCode::Char('/') => app.search_mode = true,
                     KeyCode::Char('c') => app.copy_selection(),
                     KeyCode::Char('?') => app.show_help = !app.show_help,
@@ -76,6 +80,9 @@ struct AnalyzeApp {
     filtered: Vec<usize>,
     section_sel: usize,
     field_sel: usize,
+    section_list_state: ListState,
+    field_list_state: ListState,
+    field_visible: usize,
     search_mode: bool,
     search_query: String,
     show_help: bool,
@@ -92,6 +99,9 @@ impl AnalyzeApp {
             filtered: Vec::new(),
             section_sel: 0,
             field_sel: 0,
+            section_list_state: ListState::default(),
+            field_list_state: ListState::default(),
+            field_visible: 1,
             search_mode: false,
             search_query: String::new(),
             show_help: false,
@@ -144,6 +154,40 @@ impl AnalyzeApp {
         } else {
             self.field_sel - 1
         };
+        self.align_section();
+    }
+
+    fn page_down_fields(&mut self) {
+        if self.filtered.is_empty() {
+            return;
+        }
+        let step = self.field_visible.max(1);
+        self.field_sel = (self.field_sel + step).min(self.filtered.len() - 1);
+        self.align_section();
+    }
+
+    fn page_up_fields(&mut self) {
+        if self.filtered.is_empty() {
+            return;
+        }
+        let step = self.field_visible.max(1);
+        self.field_sel = self.field_sel.saturating_sub(step);
+        self.align_section();
+    }
+
+    fn first_field(&mut self) {
+        if self.filtered.is_empty() {
+            return;
+        }
+        self.field_sel = 0;
+        self.align_section();
+    }
+
+    fn last_field(&mut self) {
+        if self.filtered.is_empty() {
+            return;
+        }
+        self.field_sel = self.filtered.len() - 1;
         self.align_section();
     }
 
@@ -207,40 +251,33 @@ fn draw_analyze(f: &mut Frame, app: &mut AnalyzeApp) {
         ])
         .split(chunks[1]);
 
+    let highlight = Style::default().add_modifier(Modifier::REVERSED);
+
     let section_items: Vec<ListItem> = app
         .sections
         .iter()
-        .enumerate()
-        .map(|(i, s)| {
-            let style = if i == app.section_sel {
-                Style::default().add_modifier(Modifier::REVERSED)
-            } else {
-                Style::default()
-            };
-            ListItem::new(format!("{} ({})", s.label, s.fields.len())).style(style)
-        })
+        .map(|s| ListItem::new(format!("{} ({})", s.label, s.fields.len())))
         .collect();
-    let sections =
-        List::new(section_items).block(Block::default().borders(Borders::ALL).title("Sections"));
-    f.render_widget(sections, mid[0]);
+    let sections = List::new(section_items)
+        .block(Block::default().borders(Borders::ALL).title("Sections"))
+        .highlight_style(highlight);
+    app.section_list_state.select(Some(app.section_sel));
+    f.render_stateful_widget(sections, mid[0], &mut app.section_list_state);
 
+    app.field_visible = list_visible_items(mid[1].height);
     let field_items: Vec<ListItem> = app
         .filtered
         .iter()
-        .enumerate()
-        .map(|(i, &fi)| {
+        .map(|&fi| {
             let f = &app.flat[fi];
-            let style = if i == app.field_sel {
-                Style::default().add_modifier(Modifier::REVERSED)
-            } else {
-                Style::default()
-            };
-            ListItem::new(format!("{}  {}", f.key, truncate(&f.value, 48))).style(style)
+            ListItem::new(format!("{}  {}", f.key, truncate(&f.value, 48)))
         })
         .collect();
-    let fields =
-        List::new(field_items).block(Block::default().borders(Borders::ALL).title("Fields"));
-    f.render_widget(fields, mid[1]);
+    let fields = List::new(field_items)
+        .block(Block::default().borders(Borders::ALL).title("Fields"))
+        .highlight_style(highlight);
+    app.field_list_state.select(Some(app.field_sel));
+    f.render_stateful_widget(fields, mid[1], &mut app.field_list_state);
 
     let warn_text = if app.warnings.is_empty() {
         "No warnings".to_string()
@@ -252,12 +289,23 @@ fn draw_analyze(f: &mut Frame, app: &mut AnalyzeApp) {
         .block(Block::default().borders(Borders::ALL).title("Warnings"));
     f.render_widget(warnings, mid[2]);
 
-    let footer = if app.show_help {
-        "j/k move · / filter · c copy · q quit · ? help".to_string()
-    } else if app.search_mode {
-        format!("Filter: {}_", app.search_query)
+    let field_counter = if app.filtered.is_empty() {
+        String::new()
     } else {
-        "j/k fields · / search · c copy · q quit · ? help".to_string()
+        format!(
+            " · {}/{}",
+            app.field_sel + 1,
+            app.filtered.len()
+        )
+    };
+    let footer = if app.show_help {
+        format!(
+            "j/k move · PgUp/PgDn · / filter · c copy · q quit · ? help{field_counter}"
+        )
+    } else if app.search_mode {
+        format!("Filter: {}_{field_counter}", app.search_query)
+    } else {
+        format!("j/k fields · / search · c copy · q quit · ? help{field_counter}")
     };
     let foot = Paragraph::new(footer).style(Style::default().fg(Color::DarkGray));
     f.render_widget(foot, chunks[2]);
@@ -268,6 +316,10 @@ fn draw_analyze(f: &mut Frame, app: &mut AnalyzeApp) {
             .block(Block::default().borders(Borders::ALL).title("Search"));
         f.render_widget(panel, area);
     }
+}
+
+fn list_visible_items(height: u16) -> usize {
+    height.saturating_sub(2).max(1) as usize
 }
 
 fn truncate(s: &str, max: usize) -> String {
