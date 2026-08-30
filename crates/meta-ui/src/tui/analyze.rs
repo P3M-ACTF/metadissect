@@ -292,16 +292,10 @@ fn draw_analyze(f: &mut Frame, app: &mut AnalyzeApp) {
     let field_counter = if app.filtered.is_empty() {
         String::new()
     } else {
-        format!(
-            " · {}/{}",
-            app.field_sel + 1,
-            app.filtered.len()
-        )
+        format!(" · {}/{}", app.field_sel + 1, app.filtered.len())
     };
     let footer = if app.show_help {
-        format!(
-            "j/k move · PgUp/PgDn · / filter · c copy · q quit · ? help{field_counter}"
-        )
+        format!("j/k move · PgUp/PgDn · / filter · c copy · q quit · ? help{field_counter}")
     } else if app.search_mode {
         format!("Filter: {}_{field_counter}", app.search_query)
     } else {
