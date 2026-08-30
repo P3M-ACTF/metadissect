@@ -1,4 +1,13 @@
-//! Legacy Office OLE CFBF (.doc / .xls / .ppt) — minimal stream + SummaryInformation subset.
+//! Legacy Office OLE Compound File Binary Format (CFBF) subset.
+//!
+//! Handles classic `.doc` / `.xls` / `.ppt` storage opened via the `cfb` crate.
+//! Scope is intentionally narrow:
+//! - stream inventory (sample of names)
+//! - `SummaryInformation` properties (Title, Author, …) when present
+//! - presence flag for `DocumentSummaryInformation` (no full property decode)
+//!
+//! Full binary Word/Excel/PowerPoint metadata and the complete OLE property set are
+//! **out of scope**; callers should treat missing fields as “not decoded”, not “absent”.
 
 use crate::types::{Field, Section};
 use cfb::CompoundFile;

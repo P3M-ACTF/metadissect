@@ -21,6 +21,10 @@ cargo test --workspace
 
 CI de PRs = **Linux debug** only (fmt + clippy + test). Windows/macOS: en tu máquina o `workflow_dispatch`. No hace `cargo build --release` en cada push.
 
+## Documentation
+
+Product docs (Uso, Arquitectura, Desarrollo, Estado) live in the **[GitHub Wiki](https://github.com/P3M-ACTF/metadissect/wiki)**. Do **not** add LLM instruction dumps (`CLAUDE.md`, `llms.txt`, `.cursorrules`, session transcripts). The only agent contract in-repo is [`AGENTS.md`](AGENTS.md).
+
 ## Pull requests
 
 - Open PRs against **`main`**.
